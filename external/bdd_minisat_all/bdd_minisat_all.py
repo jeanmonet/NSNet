@@ -60,7 +60,10 @@ def main():
     while True:
         try:
             mem_usage = psutil.Process(pid).memory_info().rss
-            temp_file_size = os.path.getsize(opts.tmp_output_file)
+            try:
+                temp_file_size = os.path.getsize(opts.tmp_output_file)
+            except FileNotFoundError:
+                temp_file_size = 0
             if mem_usage > MAX_MEMORY or temp_file_size > MAX_TEMP_FILE_SIZE:
                 # os.kill(pid, signal.SIGTERM)  # kill -15
                 # os.killpg(os.getpgid(pid), signal.SIGKILL)  # kill -9
