@@ -51,7 +51,7 @@ class SATSolver:
         assignment = []
         num_flips = 0
 
-        if timeout_expired or os.stat(tmp_filepath).st_size == 0: # timeout
+        if timeout_expired or os.stat(tmp_filepath).st_size == 0:   # timeout
             os.remove(tmp_filepath)
             return complete, assignment, num_flips, t
 
