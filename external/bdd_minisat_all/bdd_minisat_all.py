@@ -36,10 +36,10 @@ def main():
     parser.add_argument('tmp_output_file', type=str, help='Temporary output file')
     parser.add_argument('output_file', type=str, help='Output file')
     opts = parser.parse_args()
-    
+
     cmd_line = ['./bdd_minisat_all', opts.input_file, opts.tmp_output_file]
-    
-    subprocess.run(cmd_line) # may also finished by linux oom killer
+
+    subprocess.run(cmd_line)     # may also finished by linux oom killer
 
     with open(opts.tmp_output_file, 'r') as f: # may also finished by linux oom killer
         lines = f.readlines()

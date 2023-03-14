@@ -28,6 +28,8 @@ Subdirectory "external/bdd_minisat_all" should contain:
 # Run label generator (this) script -> specify output folder
 # Generates "marginals" using Minisat ALLSAT solver
 #    (see page 6, point 4.1 in https://arxiv.org/pdf/2211.03880.pdf)
+
+# --- WARNING: SATLIB data is large & may take a long time AND MEMORY to process ---
 % python src/generate_labels.py marginal /opt/files/maio2022/SAT/NSNet/SATSolving/SATLIB --n_process 2
 """
 
@@ -91,7 +93,7 @@ def main():
             pool.shutdown(wait=True)
             raise
 
-    print("DONE RUNNING PARALLEL SOLVERS. RESULTS:", len(results))
+    print("DONE RUNNING PARALLEL SOLVERS.")
 
     # # !!! RUN SOLVER SEQUENTIALLY INSTEAD OF USING MULTI-THREADING !!!
     # results = []

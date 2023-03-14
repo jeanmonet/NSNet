@@ -16,7 +16,7 @@ python src/clean_data.py /opt/files/maio2022/SAT/NSNet/SATSolving/SATLIB
 
 
 # --- Compile AllSAT solver ---
-
+# (See section below re `MSNet/external/bdd_minisat_all`)
 
 # --- GENERATE LABELS ---
 # Ensore inside MSNet folder
@@ -102,7 +102,7 @@ rm bdd_minisat_all-1.0.2.tar.gz
 
 
 ```bash
-mamba install toposort bidict        # requirements for py-aiger
+mamba install toposort bidict funcy       # requirements for py-aiger
 pip install py-aiger py-aiger-cnf
 ```
 
@@ -113,6 +113,15 @@ PySAT is a Python toolkit, which aims at providing a simple and unified interfac
 ```bash
 pip install python-sat
 ```
+
+#### `CNFGen` for generating CNF formulas
+
+- https://github.com/MassimoLauria/cnfgen
+
+```
+pip install cnfgen
+```
+
 
 #### Other (uncommon) requirements
 

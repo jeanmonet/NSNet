@@ -5,7 +5,7 @@ import random
 import networkx as nx
 
 from concurrent.futures.process import ProcessPoolExecutor
-from pysat.solvers import Cadical
+from pysat.solvers import Cadical153
 from utils.utils import write_dimacs_to, VIG
 
 
@@ -20,7 +20,7 @@ class Generator:
 
         while True:
             n_vars = random.randint(self.opts.min_n, self.opts.max_n)
-            solver = Cadical()
+            solver = Cadical153()
             clauses = []
             while True:
                 k_base = 1 if random.random() < self.opts.p_k_2 else 2
@@ -34,7 +34,7 @@ class Generator:
                     clauses.append(clause)
                 else:
                     break
-            
+
             sat_clause = [-clause[0]] + clause[1:]
             clauses.append(sat_clause)
 
@@ -63,10 +63,10 @@ def main():
     opts = parser.parse_args()
 
     generater = Generator(opts)
-    
+
     with ProcessPoolExecutor(max_workers=opts.n_process) as pool:
         pool.map(generater.run, range(opts.n_instances))
-    
+
 
 if __name__ == '__main__':
     main()

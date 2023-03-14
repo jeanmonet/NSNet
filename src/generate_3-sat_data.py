@@ -4,7 +4,7 @@ import random
 import networkx as nx
 
 from concurrent.futures.process import ProcessPoolExecutor
-from pysat.solvers import Cadical
+from pysat.solvers import Cadical153
 from cnfgen import RandomKCNF
 from utils.utils import write_dimacs_to, VIG
 
@@ -13,7 +13,7 @@ class Generator:
     def __init__(self, opts):
         self.opts = opts
         os.makedirs(self.opts.out_dir, exist_ok=True)
-    
+
     def run(self, t):
         if t % self.opts.print_interval == 0:
             print('Generating instance %d.' % t)
@@ -21,7 +21,7 @@ class Generator:
         while True:
             n_vars = random.randint(self.opts.min_n, self.opts.max_n)
             n_clauses = int(4.258 * n_vars + 58.26 * pow(n_vars, -2 / 3.))
-            
+
             cnf = RandomKCNF(3, n_vars, n_clauses)
             clauses = list(cnf.clauses())
             clauses = [list(cnf._compress_clause(clause)) for clause in clauses]
@@ -29,13 +29,13 @@ class Generator:
             if not nx.is_connected(vig):
                 continue
 
-            solver = Cadical(bootstrap_with=clauses)
-            
+            solver = Cadical153(bootstrap_with=clauses)
+
             if solver.solve():
                 write_dimacs_to(n_vars, clauses, os.path.abspath(os.path.join(self.opts.out_dir, '%.5d.cnf' % (t))))
                 break
-        
-        
+
+
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('out_dir', type=str)
