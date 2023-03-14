@@ -39,49 +39,49 @@ def main():
     parser.add_argument('input_file', type=str, help='Input file')
     parser.add_argument('tmp_output_file', type=str, help='Temporary output file')
     parser.add_argument('output_file', type=str, help='Output file')
-    parser.add_argument("--max_obdd_nodes", type=int, default=10_000, help="Maximum number of OBDD nodes")
+    # parser.add_argument("--max_obdd_nodes", type=int, default=1_000_000, help="Maximum number of OBDD nodes")
     opts = parser.parse_args()
 
     cmd_line = ['./bdd_minisat_all', opts.input_file, opts.tmp_output_file]
 
-    if opts.max_obdd_nodes is not None:
+    if "max_obdd_nodes" in opts and opts.max_obdd_nodes is not None:
         cmd_line.append(f"-n{opts.max_obdd_nodes}")
 
     # may also finished by linux oom killer
 
-    # subprocess.run(cmd_line, capture_output=False)
+    subprocess.run(cmd_line, capture_output=False)
 
-    # Monitor memory usage of bdd_minisat_all and kill it if it exceeds 1.5GB
-    # If output file exceeds 50MB, delete it and return
-    process = subprocess.Popen(cmd_line, start_new_session=True)
-    pid = process.pid
-    MAX_MEMORY = 1.5 * 1024 * 1024 * 1024
-    MAX_TEMP_FILE_SIZE = 75 * 1024 * 1024
-    while True:
-        try:
-            mem_usage = psutil.Process(pid).memory_info().rss
-            try:
-                temp_file_size = os.path.getsize(opts.tmp_output_file)
-            except FileNotFoundError:
-                temp_file_size = 0
-            if mem_usage > MAX_MEMORY or temp_file_size > MAX_TEMP_FILE_SIZE:
-                # os.kill(pid, signal.SIGTERM)  # kill -15
-                os.killpg(os.getpgid(pid), signal.SIGKILL)  # kill -9
-                # os.killpg(os.getpgid(pid), signal.SIGTERM)  # kill -15
-                os.remove(opts.tmp_output_file)    # remove output file (if any)
-                print(f"WARNING: bdd_minisat_all exceeded 1.5GB memory usage and was killed."
-                      f" {opts.input_file} -> {opts.output_file} FAILED.")
-                return   # exit function
-        except psutil.NoSuchProcess:
-            break
-        time.sleep(1)
+    # # Monitor memory usage of bdd_minisat_all and kill it if it exceeds 1.5GB
+    # # If output file exceeds 50MB, delete it and return
+    # process = subprocess.Popen(cmd_line, start_new_session=True)
+    # pid = process.pid
+    # MAX_MEMORY = 1.5 * 1024 * 1024 * 1024
+    # MAX_TEMP_FILE_SIZE = 75 * 1024 * 1024
+    # while True:
+    #     try:
+    #         mem_usage = psutil.Process(pid).memory_info().rss
+    #         try:
+    #             temp_file_size = os.path.getsize(opts.tmp_output_file)
+    #         except FileNotFoundError:
+    #             temp_file_size = 0
+    #         if mem_usage > MAX_MEMORY or temp_file_size > MAX_TEMP_FILE_SIZE:
+    #             # os.kill(pid, signal.SIGTERM)  # kill -15
+    #             os.killpg(os.getpgid(pid), signal.SIGKILL)  # kill -9
+    #             # os.killpg(os.getpgid(pid), signal.SIGTERM)  # kill -15
+    #             os.remove(opts.tmp_output_file)    # remove output file (if any)
+    #             print(f"WARNING: bdd_minisat_all exceeded 1.5GB memory usage and was killed."
+    #                   f" {opts.input_file} -> {opts.output_file} FAILED.")
+    #             return   # exit function
+    #     except psutil.NoSuchProcess:
+    #         break
+    #     time.sleep(1)
 
-    # If output file exceeds 50MB, delete it and return
-    if os.path.getsize(opts.tmp_output_file) > 50 * 1024 * 1024:
-        os.remove(opts.tmp_output_file)    # remove output file (if any)
-        print(f"WARNING: bdd_minisat_all output file {opts.tmp_output_file} exceeded 50MB and was deleted."
-              f" {opts.input_file} -> {opts.output_file} FAILED.")
-        return
+    # # If output file exceeds 50MB, delete it and return
+    # if os.path.getsize(opts.tmp_output_file) > 50 * 1024 * 1024:
+    #     os.remove(opts.tmp_output_file)    # remove output file (if any)
+    #     print(f"WARNING: bdd_minisat_all output file {opts.tmp_output_file} exceeded 50MB and was deleted."
+    #           f" {opts.input_file} -> {opts.output_file} FAILED.")
+    #     return
 
 
     with open(opts.tmp_output_file, 'r') as f:
