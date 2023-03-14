@@ -24,7 +24,8 @@ class Generator:
 
             cnf = RandomKCNF(3, n_vars, n_clauses)
             clauses = list(cnf.clauses())
-            clauses = [list(cnf._compress_clause(clause)) for clause in clauses]
+            # clauses = [list(cnf._compress_clause(clause)) for clause in clauses]
+            # Clauses are already in compressed format as per newer library version
             vig = VIG(n_vars, clauses)
             if not nx.is_connected(vig):
                 continue
@@ -51,7 +52,7 @@ def main():
     opts = parser.parse_args()
 
     generater = Generator(opts)
-    
+
     with ProcessPoolExecutor(max_workers=opts.n_process) as pool:
         pool.map(generater.run, range(opts.n_instances))
 
