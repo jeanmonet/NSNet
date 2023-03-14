@@ -26,7 +26,9 @@ Subdirectory "external/bdd_minisat_all" should contain:
 import os
 import argparse
 import subprocess
+import psutil
 import pickle
+import signal
 import numpy as np
 
 
@@ -44,7 +46,25 @@ def main():
         cmd_line.append(f"-n{opts.max_obdd_nodes}")
 
     # may also finished by linux oom killer
-    subprocess.run(cmd_line, capture_output=False)
+    
+    # subprocess.run(cmd_line, capture_output=False)
+
+    # Monitor memory usage of bdd_minisat_all and kill it if it exceeds 1.5GB
+    process = subprocess.Popen(cmd_line, start_new_session=True)
+    pid = process.pid
+    MAX_MEMORY = 1.5 * 1024 * 1024 * 1024
+    while True:
+        try:
+            mem_usage = psutil.Process(pid).memory_info().rss
+            if mem_usage > MAX_MEMORY:
+                # os.kill(pid, signal.SIGTERM)  # kill -15
+                os.killpg(os.getpgid(pid), signal.SIGKILL)  # kill -9
+                os.remove(opts.tmp_output_file)    # remove output file (if any)
+                print(f"WARNING: bdd_minisat_all exceeded 1.5GB memory usage and was killed."
+                      f" {opts.input_file} -> {opts.output_file} FAILED.")
+                return   # exit function
+        except psutil.NoSuchProcess:
+            break
 
     with open(opts.tmp_output_file, 'r') as f:
         # may also finished by linux oom killer
