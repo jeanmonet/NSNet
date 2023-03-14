@@ -42,14 +42,14 @@ def main():
     shutil.copyfile(labels_file, os.path.join(opts.out_dir, 'countings.pkl'))
 
     solver = MISSolver(opts)
-    
+
     print('Generating...')
     all_files = sorted(glob.glob(opts.test_dir + '/**/*.cnf', recursive=True))
     all_files = [os.path.abspath(f) for f in all_files]
-    
+
     with ProcessPoolExecutor(max_workers=opts.n_process) as pool:
         results = pool.map(solver.run, all_files)
-    
+
     all_results = []
     cnt = 0
     for file_path, result in zip(all_files, results):
@@ -61,11 +61,11 @@ def main():
         if complete:
             ind_line = 'c ind ' + ' '.join([str(var) for var in ind_vars]) + ' 0\n'
             lines.insert(0, ind_line)
-        
+
         out_path = os.path.join(opts.out_dir, '%.5d.cnf' % (cnt))
         with open(out_path, 'w') as f:
             f.writelines(lines)
-        
+
         cnt += 1
 
     with open('%s/dataset=%s_timeout=%s.pkl' % (opts.eval_dir, dataset_name, opts.timeout), 'wb') as f:

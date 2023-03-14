@@ -1,3 +1,12 @@
+"""
+# Ensore inside MSNet folder
+% pwd
+/opt/files/maio2022/SAT/NSNet
+
+# Run (this) script -> specify output folder
+% python src/run_model.py /opt/files/maio2022/SAT/NSNet/SATSolving/SATLIB --model NSNet
+"""
+
 import torch
 import os
 import argparse
@@ -22,7 +31,7 @@ def main():
     parser.add_argument('--batch_size', type=int, default=256, help='Batch size')
     parser.add_argument('--seed', type=int, default=0, help='Random seed')
     add_model_options(parser)
-    
+
     opts = parser.parse_args()
     opts.task = 'sat-solving'
 
@@ -60,7 +69,7 @@ def main():
             checkpoint = torch.load(opts.checkpoint)
 
         model.load_state_dict(checkpoint['state_dict'], strict=False)
-    
+
     model.to(opts.device)
 
     print('Running...')
@@ -83,9 +92,9 @@ def main():
                         f.write('%d ' % v)
                     f.write('\n')
                 i += 1
-    
+
     assert i == len(all_files)
-    
+
     t = time.time() - t0
     print('Running Time: %f' % t)
 

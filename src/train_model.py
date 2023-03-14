@@ -1,3 +1,12 @@
+"""
+# Ensore inside MSNet folder
+% pwd
+/opt/files/maio2022/SAT/NSNet
+
+# Run (this) script -> specify output folder
+% python src/train_model.py sat-solving NSNet /opt/files/maio2022/SAT/NSNet/SATSolving/SATLIB --model NSNet
+"""
+
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -21,9 +30,19 @@ from torch_scatter import scatter_sum
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument('task', type=str, choices=['model-counting', 'sat-solving'], help='Experiment task')
-    parser.add_argument('exp_id', type=str, help='Experiment id')
-    parser.add_argument('train_dir', type=str, help='Directory with training data')
+    # parser.add_argument('task', type=str, choices=['model-counting', 'sat-solving'], help='Experiment task')
+    # parser.add_argument('exp_id', type=str, help='Experiment id')
+    # parser.add_argument('train_dir', type=str, help='Directory with training data')
+    parser.add_argument(
+        '--task', type=str, choices=['model-counting', 'sat-solving'], help='Experiment task',
+        default="sat-solving")
+    parser.add_argument(
+        '--exp_id', type=str, help='Experiment id',
+        default="NSNet")
+    parser.add_argument(
+        '--train_dir', type=str, help='Directory with training data',
+        default="/opt/files/maio2022/SAT/NSNet/SATSolving/SATLIB")
+
     parser.add_argument('--train_size', type=int, default=None, help='Number of training data')
     parser.add_argument('--valid_dir', type=str, default=None, help='Directory with validating data')
     parser.add_argument('--loss', type=str, choices=['assignment', 'marginal'], default='marginal', help='Loss type for SAT solving')
@@ -43,7 +62,9 @@ def main():
 
     add_model_options(parser)
 
-    opts = parser.parse_args()
+    # opts = parser.parse_args()
+    # Parse arguments when using Jupyter Notebook: https://stackoverflow.com/a/72670647/11750716
+    opts, _unknown = parser.parse_known_args()
 
     torch.manual_seed(opts.seed)
     torch.cuda.manual_seed(opts.seed)
@@ -76,12 +97,12 @@ def main():
 
     optimizer = optim.Adam(model.parameters(), lr=opts.lr, weight_decay=opts.weight_dacay)
     train_loader = get_dataloader(opts.train_dir, opts, 'train', opts.train_size)
-    
+
     if opts.valid_dir is not None:
         valid_loader = get_dataloader(opts.valid_dir, opts, 'valid')
     else:
         valid_loader = None
-    
+
     if opts.scheduler is not None:
         if opts.scheduler == 'ReduceLROnPlateau':
             assert opts.valid_dir is not None
@@ -111,13 +132,13 @@ def main():
         train_tot = 0
         train_rmse = 0
         train_cnt = 0
-        
+
         model.train()
         for data in train_loader:
             optimizer.zero_grad()
             data = data.to(opts.device)
             batch_size = data.c_size.shape[0]
-            
+
             if opts.task == 'model-counting':
                 preds = model(data)
                 labels = data.y
@@ -130,7 +151,7 @@ def main():
                 c_batch = data.c_batch
                 l_edge_index = data.l_edge_index
                 c_edge_index = data.c_edge_index
-                
+
                 if opts.loss == 'assignment':
                     preds = v_prob[:, 0]
                     labels = data.y
@@ -152,7 +173,7 @@ def main():
             loss.backward()
             torch.nn.utils.clip_grad_norm_(model.parameters(), opts.clip_norm)
             optimizer.step()
-            
+
         train_loss /= train_tot
         print('Training LR: %f, Training loss: %f' % (optimizer.param_groups[0]['lr'], train_loss))
 
@@ -170,7 +191,7 @@ def main():
                 'optimizer': optimizer.state_dict()}, 
                 os.path.join(opts.checkpoint_dir, 'model_%d.pt' % epoch)
             )
-        
+
         if opts.valid_dir is not None:
             print('Validating...')
 
@@ -206,17 +227,17 @@ def main():
                             labels = data.y
                             labels = torch.stack([labels, 1-labels], dim=1)
                             loss = F.kl_div(safe_log(preds), labels)
-                        
+
                         v_assign = (v_prob > 0.5).float()
                         preds = v_assign[:, 0]
                         l_assign = v_assign.reshape(-1)
                         c_sat = torch.clamp(scatter_sum(l_assign[l_edge_index], c_edge_index, dim=0, dim_size=c_size), max=1)
                         sat_batch = (scatter_sum(c_sat, c_batch, dim=0, dim_size=batch_size) == data.c_size).float()
                         valid_cnt += sat_batch.sum().item()
-                                
+
                 valid_loss += loss.item() * batch_size
                 valid_tot += batch_size
-            
+
             valid_loss /= valid_tot
             print('Validating loss: %f' % valid_loss)
 

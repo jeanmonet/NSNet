@@ -1,3 +1,127 @@
+# Steps to download SATLIB & clean data
+
+```bash
+# --- DOWNLOAD SATLIB ---
+# Ensore inside MSNet folder
+% pwd
+# OUT: /opt/files/maio2022/SAT/NSNet
+
+# Run download (this) script -> specify output folder
+python src/download_satlib_data.py /opt/files/maio2022/SAT/NSNet/SATSolving/SATLIB
+
+# --- CLEAN DATA ---
+# Ensure inside MSNet folser
+# Clean data
+python src/clean_data.py /opt/files/maio2022/SAT/NSNet/SATSolving/SATLIB
+
+
+# --- Compile AllSAT solver ---
+
+
+# --- GENERATE LABELS ---
+# Ensore inside MSNet folder
+% pwd
+/opt/files/maio2022/SAT/NSNet
+
+# Run label generator (this) script -> specify output folder
+# Generates "marginals" using Minisat ALLSAT solver
+#    (see page 6, point 4.1 in https://arxiv.org/pdf/2211.03880.pdf)
+% python src/generate_labels.py marginal /opt/files/maio2022/SAT/NSNet/SATSolving/SATLIB
+
+```
+
+#### Note about `labels`:
+
+##### Page 2 (https://arxiv.org/pdf/2211.03880.pdf)
+
+> Existing neural SAT solvers [ 2, 3] aim to predict a single satisfying assignment for a satisfiable formula. However, there can be multiple satisfying solutions, making it unclear which particular solution should be generated. Instead of directly predicting a solution, **NSNet performs marginal inference** in the solution space of a SAT problem, **estimating the assignment distribution of each variable among all satisfying assignments**.
+
+> Although NSNet is not directly trained to solve a SAT problem, its estimated marginals can be used to quickly generate a satisfying assignment. One simple way is to **round the estimated marginals to an initial assignment and then perform the stochastic local search (SLS) on it**.
+
+> Our experimental evaluations on the synthetic datasets with three different distributions show that NSNet’s initial assignments can not only **solve much more instances than both BP and the neural baseline but also improve the state-of-the-art SLS solver to find a satisfying assignment with fewer flips**.
+
+##### Page 5
+
+> To address this question, we leverage NSNet to perform **marginal inference**, i.e., **computing the marginal distribution of each variable among all satisfying assignments**. In other words, instead of solving a SAT problem directly, we aim to **estimate the fraction of each variable that takes 1 or 0 in the entire solution space**. Note the marginal for each variable takes all feasible solutions into account and is unique, which is more stable and interpretable to be reasoned by the neural networks. Similar to Equation 3 used by BP to compute variable beliefs, NSNet estimates each marginal value bi(xi) by aggregating the clause to variable assignment messages through a MLP and a softmax function: ...
+
+> To train NSNet to perform marginal inference accurately, we minimize the Kullback-Leibler (KL) divergence loss between the estimated marginal distributions and the ground truth. We use an efficient ALLSAT solver to enumerate all the satisfying assignments and take the average of them to compute the true marginals.
+
+> Now we consider how to generate a satisfying assignment after obtaining the estimated marginals. ...
+
+
+# `AllSAT` solver needed to generate labels (*marginals*)
+
+- http://www.sd.is.uec.ac.jp/toda/code/cnf2obdd.html#download
+- https://arxiv.org/abs/1510.00523
+
+Subdirectory `MSNet/external/bdd_minisat_all` should contain:
+- `bdd_minisat_all.py`
+- `bdd_minisat_all` --> executable & compiled for current OS/machine
+
+##### Inside `MSNet/external/bdd_minisat_all` directory:
+
+```bash
+# Delete executable compiled on different OS/machine
+rm bdd_minisat_all
+# Downlaod latest
+wget http://www.sd.is.uec.ac.jp/toda/code/bdd_minisat_all-1.0.2.tar.gz
+tar -xvzf bdd_minisat_all-1.0.2.tar.gz
+cd bdd_minisat_all-1.0.2
+make
+cp bdd_minisat_all ./../bdd_minisat_all
+# Clean-up
+cd ..
+rm -rf bdd_minisat_all-1.0.2
+rm bdd_minisat_all-1.0.2.tar.gz
+```
+
+
+# Steps to generate labels
+
+```bash
+# Ensore inside MSNet folder
+% pwd
+/opt/files/maio2022/SAT/NSNet
+
+# Run label generator (this) script -> specify output folder
+# Generates "marginals" using Minisat ALLSAT solver
+#    (see page 6, point 4.1 in https://arxiv.org/pdf/2211.03880.pdf)
+% python src/generate_labels.py marginal /opt/files/maio2022/SAT/NSNet/SATSolving/SATLIB
+```
+
+
+
+## Package installs / requirements
+
+#### `py-aiger` & `py-aiger-cnf` (circuits encoded using **`and` & `inverter` gates (AIGs)**) (requirements for python-sat)
+
+- pyAiger: A python library for manipulating sequential and combinatorial circuits **encoded using `and` & `inverter` gates (AIGs)**.
+  - https://github.com/mvcisback/py-aiger#installation
+- py-aiger-cnf: Python library to convert between AIGER and CNF
+  - https://github.com/mvcisback/py-aiger-cnf
+
+
+```bash
+mamba install toposort bidict        # requirements for py-aiger
+pip install py-aiger py-aiger-cnf
+```
+
+#### `pysat` (`python-sat`) - PySAT: SAT technology in Python (requirement for current lib)
+
+PySAT is a Python toolkit, which aims at providing a simple and unified interface to a number of state-of-art Boolean satisfiability (SAT) solvers as well as to a variety of cardinality and pseudo-Boolean encodings. The purpose of PySAT is to enable researchers working on SAT and its applications and generalizations to easily prototype with SAT oracles in Python while exploiting incrementally the power of the original low-level implementations of modern SAT solvers.
+
+```bash
+pip install python-sat
+```
+
+#### Other (uncommon) requirements
+
+```bash
+mamba install sympy
+```
+
+
+
 # NSNet
 
 ![framework](asset/framework.png)

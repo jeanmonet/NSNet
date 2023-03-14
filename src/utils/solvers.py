@@ -32,7 +32,7 @@ class SATSolver:
             cmd_line.append(init_filepath)
         else:
             tmp_filepath = os.path.join(os.path.dirname(input_filepath), filename + '_' + self.opts.solver + '.out')
-        
+
         cmd_line.append(input_filepath)
 
         with open(tmp_filepath, 'w') as f:
@@ -46,7 +46,7 @@ class SATSolver:
                 timeout_expired = 1
                 os.killpg(os.getpgid(process.pid), signal.SIGTERM)
             t = time.time() - t0
-        
+
         complete = 0
         assignment = []
         num_flips = 0
@@ -54,18 +54,18 @@ class SATSolver:
         if timeout_expired or os.stat(tmp_filepath).st_size == 0: # timeout
             os.remove(tmp_filepath)
             return complete, assignment, num_flips, t
-        
+
         with open(tmp_filepath, 'r') as f:
             for line in f.readlines():
                 if line.startswith('v'):
                     assignment = assignment + [int(s) for s in line.strip().split()[1:]]
                 if line.startswith('c numFlips'): # Local search solver
                     num_flips = Decimal(line.strip().split()[-1])
-        
+
         if assignment: # All instances are SAT
             complete = 1
             assignment = np.array(assignment[:-1]) > 0
-        
+
         os.remove(tmp_filepath)
         return complete, assignment, num_flips, t
 
@@ -108,7 +108,7 @@ class MCSolver:
             timeout_expired = 1
             os.killpg(os.getpgid(process.pid), signal.SIGTERM)
         t = time.time() - t0
-        
+
         complete = 0
         counting = -1
 
@@ -132,7 +132,7 @@ class MCSolver:
             counting = Decimal(eval(matches[1].replace('x', '*').replace('^', '**')))
             if Decimal.is_nan(counting):
                 complete = 0
-        
+
         return complete, counting, t
 
 
@@ -142,7 +142,7 @@ class MISSolver:
         assert self.opts.solver == 'MIS'
         self.exec_dir = os.path.abspath('external/MIS')
         self.cmd_line = ['python', 'mis.py']
-    
+
     def run(self, input_filepath):
         filename = os.path.splitext(os.path.basename(input_filepath))[0]
         tmp_filepath = os.path.join(os.path.dirname(input_filepath), filename + '_' + self.opts.solver + '.out')
@@ -167,13 +167,13 @@ class MISSolver:
 
         if timeout_expired or not os.path.exists(tmp_filepath):
             return complete, ind_vars, t
-        
+
         complete = 1
         with open(tmp_filepath, 'r') as f:
             lines = f.readlines()
             # assert len(lines) == 1
             ind_vars = [int(s) for s in lines[0].strip().split()[:-1]]
-        
+
         os.remove(tmp_filepath)
         return complete, ind_vars, t
 
@@ -184,7 +184,7 @@ class MESolver:
         assert self.opts.solver == 'bdd_minisat_all'
         self.exec_dir = os.path.abspath('external/bdd_minisat_all')
         self.cmd_line = ['python', 'bdd_minisat_all.py']
-    
+
     def run(self, input_filepath):
         filename = os.path.splitext(os.path.basename(input_filepath))[0]
         tmp_filepath = os.path.join(os.path.dirname(input_filepath), filename + '_' + self.opts.solver + '.out')
@@ -194,16 +194,42 @@ class MESolver:
         cmd_line.append(tmp_filepath)
         cmd_line.append(output_filepath)
 
+        # print(filename, end=" ")
+
         t0 = time.time()
         timeout_expired = 0
         try:
-            process = subprocess.Popen(cmd_line, cwd=self.exec_dir, start_new_session=True)
-            process.communicate(timeout=self.opts.timeout)
+            process = subprocess.run(
+                cmd_line,
+                capture_output=True,
+                text=True,
+                timeout=self.opts.timeout,
+                cwd=self.exec_dir
+            )
+            if process.stderr:
+                raise RuntimeError(
+                    f"Could not execute cmd {' '.join(cmd_line)!r}.\n"
+                    f"Error:\n{process.stderr}")
+            # process = subprocess.Popen(cmd_line, cwd=self.exec_dir, start_new_session=True, stdout=subprocess.DEVNULL)
+            # process.communicate(timeout=self.opts.timeout)
+
+            # last_lines = subprocess.check_output(["tail", "-n", "10"], stdin=process.stdout).decode('utf-8')
+
             # may also finished by linux oom killer
-        except:
+        except (Exception, KeyboardInterrupt) as exp:
+            print(exp)
             timeout_expired = 1
             os.killpg(os.getpgid(process.pid), signal.SIGTERM)
+            try:
+                process.wait(5)
+            except:
+                pass
+            process.kill()
+            print("Killed and waiting to finish")
+            process.wait()
         t = time.time() - t0
+
+        # print("Done", filename)
 
         complete = 0
         marginal = None
@@ -211,12 +237,14 @@ class MESolver:
         if timeout_expired or not os.path.exists(output_filepath):
             os.remove(tmp_filepath)
             return complete, marginal, t
-        
+
         complete = 1
         with open(output_filepath, 'rb') as f:
             marginal = pickle.load(f)
-        
+
         os.remove(tmp_filepath)
         os.remove(output_filepath)
+
+        # print("Done", filename, "in", t, "s")
 
         return complete, marginal, t

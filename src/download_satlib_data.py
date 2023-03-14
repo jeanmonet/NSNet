@@ -1,7 +1,21 @@
+"""
+# Ensore inside MSNet folder
+% pwd
+/opt/files/maio2022/SAT/NSNet
+
+# Run download (this) script -> specify output folder
+% python src/download_satlib_data.py /opt/files/maio2022/SAT/NSNet/SATSolving/SATLIB
+"""
+
+
 import os
-import wget
+# import wget
+import requests
 import tarfile
 import argparse
+
+from tqdm import tqdm
+
 
 urls = {
     'RND3SAT':
@@ -90,8 +104,9 @@ urls = {
     ]
 }
 
+
 def download(opts):
-    for category in urls:
+    for category in tqdm(urls):
         category_path = os.path.join(opts.out_dir, category)
         for url in urls[category]:
             file_name = os.path.basename(url)
@@ -100,11 +115,15 @@ def download(opts):
             file_path = os.path.join(dir_path, file_name)
             os.makedirs(dir_path, exist_ok=True)
             if not os.path.exists(file_path):
-                wget.download(url, out=dir_path)
+                response = requests.get(url, stream=True)
+                with open(file_path, "wb") as f:
+                    f.write(response.content)
+                # wget.download(url, out=dir_path)
             f = tarfile.open(file_path)
             f.extractall(dir_path)
             f.close()
             os.remove(file_path)
+
 
 def main():
     parser = argparse.ArgumentParser()

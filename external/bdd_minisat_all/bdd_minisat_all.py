@@ -1,3 +1,28 @@
+"""
+# ------------------------------------------------------------------
+# --- First ensure bdd_minisat_all -> AllSAT solver is compiled ---
+# ------------------------------------------------------------------
+- http://www.sd.is.uec.ac.jp/toda/code/cnf2obdd.html#download
+- https://arxiv.org/abs/1510.00523
+
+Subdirectory "external/bdd_minisat_all" should contain:
+- bdd_minisat_all.py
+- bdd_minisat_all       # executable & compiled for current OS/machine
+
+# Inside MSNet/external/bdd_minisat_all directory:
+% rm bdd_minisat_all         # delete executable compiled on different OS/machine
+% wget http://www.sd.is.uec.ac.jp/toda/code/bdd_minisat_all-1.0.2.tar.gz
+% tar -xvzf bdd_minisat_all-1.0.2.tar.gz
+% cd bdd_minisat_all-1.0.2
+% make
+% cp bdd_minisat_all ./../bdd_minisat_all
+% cd ..
+% rm -rf bdd_minisat_all-1.0.2
+% rm bdd_minisat_all-1.0.2.tar.gz
+# ------------------------------------------------------------------
+"""
+
+
 import os
 import argparse
 import subprocess
