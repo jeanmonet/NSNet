@@ -61,7 +61,8 @@ class SATSolver:
                 num_lines += 1
                 if line.startswith('v'):
                     assignment = assignment + [int(s) for s in line.strip().split()[1:]]
-                if line.startswith('c numFlips'): # Local search solver
+                if line.startswith('c numFlips'):
+                    # Local search solver
                     num_flips = Decimal(line.strip().split()[-1])
 
         # Temp file empty. Delete it and exit

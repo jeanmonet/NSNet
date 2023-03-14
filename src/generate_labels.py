@@ -87,7 +87,7 @@ def main():
     with ProcessPoolExecutor(max_workers=opts.n_process) as pool:
         # results = pool.map(solver.run, tqdm(all_files))
         try:
-            results = pool.map(solver.run, tqdm(all_files))
+            results = pool.map(solver.run, tqdm(all_files), timeout=5)
         except (Exception, KeyboardInterrupt):
             print("Terminating processes")
             pool.shutdown(wait=False)

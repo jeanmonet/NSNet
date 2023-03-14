@@ -66,8 +66,8 @@ def main():
                 temp_file_size = 0
             if mem_usage > MAX_MEMORY or temp_file_size > MAX_TEMP_FILE_SIZE:
                 # os.kill(pid, signal.SIGTERM)  # kill -15
-                # os.killpg(os.getpgid(pid), signal.SIGKILL)  # kill -9
-                os.killpg(os.getpgid(pid), signal.SIGTERM)  # kill -15
+                os.killpg(os.getpgid(pid), signal.SIGKILL)  # kill -9
+                # os.killpg(os.getpgid(pid), signal.SIGTERM)  # kill -15
                 os.remove(opts.tmp_output_file)    # remove output file (if any)
                 print(f"WARNING: bdd_minisat_all exceeded 1.5GB memory usage and was killed."
                       f" {opts.input_file} -> {opts.output_file} FAILED.")
