@@ -26,6 +26,7 @@ python src/clean_data.py /opt/files/maio2022/SAT/NSNet/SATSolving/SATLIB
 # Run label generator (this) script -> specify output folder
 # Generates "marginals" using Minisat ALLSAT solver
 #    (see page 6, point 4.1 in https://arxiv.org/pdf/2211.03880.pdf)
+# WARNING: takes a loong time
 % python src/generate_labels.py marginal /opt/files/maio2022/SAT/NSNet/SATSolving/SATLIB
 
 ```
@@ -49,7 +50,7 @@ python src/clean_data.py /opt/files/maio2022/SAT/NSNet/SATSolving/SATLIB
 > Now we consider how to generate a satisfying assignment after obtaining the estimated marginals. ...
 
 
-# `AllSAT` solver needed to generate labels (*marginals*)
+### `AllSAT` solver needed to generate labels (*marginals*)
 
 - http://www.sd.is.uec.ac.jp/toda/code/cnf2obdd.html#download
 - https://arxiv.org/abs/1510.00523
@@ -58,9 +59,11 @@ Subdirectory `MSNet/external/bdd_minisat_all` should contain:
 - `bdd_minisat_all.py`
 - `bdd_minisat_all` --> executable & compiled for current OS/machine
 
-##### Inside `MSNet/external/bdd_minisat_all` directory:
+##### Downloading & compiling `AllSAT` solver -> inside `MSNet/external/bdd_minisat_all` directory:
 
 ```bash
+# Lib to prevent "/usr/bin/ld: cannot find -lz"
+sudo apt install zlib1g-dev
 # Delete executable compiled on different OS/machine
 rm bdd_minisat_all
 # Downlaod latest
@@ -91,7 +94,7 @@ rm bdd_minisat_all-1.0.2.tar.gz
 
 
 
-## Package installs / requirements
+# Package installs / requirements
 
 #### `py-aiger` & `py-aiger-cnf` (circuits encoded using **`and` & `inverter` gates (AIGs)**) (requirements for python-sat)
 
@@ -106,9 +109,12 @@ mamba install toposort bidict funcy       # requirements for py-aiger
 pip install py-aiger py-aiger-cnf
 ```
 
-#### `pysat` (`python-sat`) - PySAT: SAT technology in Python (requirement for current lib)
+#### `PySAT` (`python-sat`) - PySAT: SAT technology in Python (requirement for current lib)
 
 PySAT is a Python toolkit, which aims at providing a simple and unified interface to a number of state-of-art Boolean satisfiability (SAT) solvers as well as to a variety of cardinality and pseudo-Boolean encodings. The purpose of PySAT is to enable researchers working on SAT and its applications and generalizations to easily prototype with SAT oracles in Python while exploiting incrementally the power of the original low-level implementations of modern SAT solvers.
+
+- https://github.com/pysathq/pysat
+- https://pysathq.github.io/
 
 ```bash
 pip install python-sat
@@ -123,10 +129,10 @@ pip install cnfgen
 ```
 
 
-#### Other (uncommon) requirements
+#### Other requirements
 
 ```bash
-mamba install sympy
+mamba install pytorch_geometric sympy networkx
 ```
 
 

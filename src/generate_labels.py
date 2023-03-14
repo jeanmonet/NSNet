@@ -88,9 +88,9 @@ def main():
         # results = pool.map(solver.run, tqdm(all_files))
         try:
             results = pool.map(solver.run, tqdm(all_files))
-        except KeyboardInterrupt:
+        except (Exception, KeyboardInterrupt):
             print("Terminating processes")
-            pool.shutdown(wait=True)
+            pool.shutdown(wait=False)
             raise
 
     print("DONE RUNNING PARALLEL SOLVERS.")
