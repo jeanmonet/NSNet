@@ -29,6 +29,8 @@ import subprocess
 import psutil
 import pickle
 import signal
+import time
+
 import numpy as np
 
 
@@ -65,6 +67,7 @@ def main():
                 return   # exit function
         except psutil.NoSuchProcess:
             break
+        time.sleep(1)
 
     with open(opts.tmp_output_file, 'r') as f:
         # may also finished by linux oom killer
