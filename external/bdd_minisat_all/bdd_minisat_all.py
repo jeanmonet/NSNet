@@ -35,10 +35,11 @@ def main():
     parser.add_argument('input_file', type=str, help='Input file')
     parser.add_argument('tmp_output_file', type=str, help='Temporary output file')
     parser.add_argument('output_file', type=str, help='Output file')
-    parser.add_argument("--max_obdd_nodes", type=int, default=None, help="Maximum number of OBDD nodes")
+    parser.add_argument("--max_obdd_nodes", type=int, default=100_000_000, help="Maximum number of OBDD nodes")
     opts = parser.parse_args()
 
     cmd_line = ['./bdd_minisat_all', opts.input_file, opts.tmp_output_file]
+
     if opts.max_obdd_nodes is not None:
         cmd_line.append(f"-n{opts.max_obdd_nodes}")
 
