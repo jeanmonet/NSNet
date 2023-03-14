@@ -55,14 +55,22 @@ class SATSolver:
             os.remove(tmp_filepath)
             return complete, assignment, num_flips, t
 
+        num_lines = 0
         with open(tmp_filepath, 'r') as f:
             for line in f.readlines():
+                num_lines += 1
                 if line.startswith('v'):
                     assignment = assignment + [int(s) for s in line.strip().split()[1:]]
                 if line.startswith('c numFlips'): # Local search solver
                     num_flips = Decimal(line.strip().split()[-1])
 
-        if assignment: # All instances are SAT
+        # Temp file empty. Delete it and exit
+        if not num_lines:
+            os.remove(tmp_filepath)
+            return complete, assignment, num_flips, t
+
+        if assignment:
+            # All instances are SAT
             complete = 1
             assignment = np.array(assignment[:-1]) > 0
 

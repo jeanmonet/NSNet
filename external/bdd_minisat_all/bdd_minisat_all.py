@@ -69,6 +69,14 @@ def main():
             break
         time.sleep(1)
 
+    # If output file exceeds 50MB, delete it and return
+    if os.path.getsize(opts.tmp_output_file) > 50 * 1024 * 1024:
+        os.remove(opts.tmp_output_file)    # remove output file (if any)
+        print(f"WARNING: bdd_minisat_all output file {opts.tmp_output_file} exceeded 50MB and was deleted."
+              f" {opts.input_file} -> {opts.output_file} FAILED.")
+        return
+
+
     with open(opts.tmp_output_file, 'r') as f:
         # may also finished by linux oom killer
         lines = f.readlines()
