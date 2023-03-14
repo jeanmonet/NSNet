@@ -48,19 +48,23 @@ def main():
         cmd_line.append(f"-n{opts.max_obdd_nodes}")
 
     # may also finished by linux oom killer
-    
+
     # subprocess.run(cmd_line, capture_output=False)
 
     # Monitor memory usage of bdd_minisat_all and kill it if it exceeds 1.5GB
+    # If output file exceeds 50MB, delete it and return
     process = subprocess.Popen(cmd_line, start_new_session=True)
     pid = process.pid
     MAX_MEMORY = 1.5 * 1024 * 1024 * 1024
+    MAX_TEMP_FILE_SIZE = 75 * 1024 * 1024
     while True:
         try:
             mem_usage = psutil.Process(pid).memory_info().rss
-            if mem_usage > MAX_MEMORY:
+            temp_file_size = os.path.getsize(opts.tmp_output_file)
+            if mem_usage > MAX_MEMORY or temp_file_size > MAX_TEMP_FILE_SIZE:
                 # os.kill(pid, signal.SIGTERM)  # kill -15
-                os.killpg(os.getpgid(pid), signal.SIGKILL)  # kill -9
+                # os.killpg(os.getpgid(pid), signal.SIGKILL)  # kill -9
+                os.killpg(os.getpgid(pid), signal.SIGTERM)  # kill -15
                 os.remove(opts.tmp_output_file)    # remove output file (if any)
                 print(f"WARNING: bdd_minisat_all exceeded 1.5GB memory usage and was killed."
                       f" {opts.input_file} -> {opts.output_file} FAILED.")
