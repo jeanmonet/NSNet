@@ -18,49 +18,59 @@ import numpy as np
 import random
 import math
 
+from tqdm import tqdm
+
 from torch.optim.lr_scheduler import ReduceLROnPlateau, StepLR
+
+# pytorch-scatter ported to pytorch main
+# https://github.com/rusty1s/pytorch_scatter/issues/241#issuecomment-1336116049
+# from torch_scatter import scatter_sum
+# from torch.scatter_reduce import scatter_sum
+
 from utils.options import add_model_options
 from utils.logger import Logger
 from utils.dataloader import get_dataloader
 from utils.utils import safe_log
 from models.nsnet import NSNet
 from models.neurosat import NeuroSAT
-from torch_scatter import scatter_sum
+
+from utils.options import ArgOpts
 
 
-def main():
+def main(opts: ArgOpts = None):
+    opts = opts or ArgOpts()            # empty -> uses defaults passed below
     parser = argparse.ArgumentParser()
     # parser.add_argument('task', type=str, choices=['model-counting', 'sat-solving'], help='Experiment task')
     # parser.add_argument('exp_id', type=str, help='Experiment id')
     # parser.add_argument('train_dir', type=str, help='Directory with training data')
     parser.add_argument(
         '--task', type=str, choices=['model-counting', 'sat-solving'], help='Experiment task',
-        default="sat-solving")
+        default=opts.get("task", "sat-solving"))
     parser.add_argument(
         '--exp_id', type=str, help='Experiment id',
-        default="NSNet")
+        default=opts.get("exp_id", "NSNet"))
     parser.add_argument(
         '--train_dir', type=str, help='Directory with training data',
-        default="/opt/files/maio2022/SAT/NSNet/SATSolving/SATLIB")
+        default=opts.get("train_dir", "/opt/files/maio2022/SAT/NSNet/SATSolving/sr/train"))
 
-    parser.add_argument('--train_size', type=int, default=None, help='Number of training data')
-    parser.add_argument('--valid_dir', type=str, default=None, help='Directory with validating data')
-    parser.add_argument('--loss', type=str, choices=['assignment', 'marginal'], default='marginal', help='Loss type for SAT solving')
-    parser.add_argument('--restore', type=str, default=None, help='Continue training from a checkpoint')
-    parser.add_argument('--save_model_epochs', type=int, default=1, help='Number of epochs between model savings')
-    parser.add_argument('--num_workers', type=int, default=8, help='Number of workers for data loading')
-    parser.add_argument('--batch_size', type=int, default=128, help='Batch size')
-    parser.add_argument('--epochs', type=int, default=200, help='Number of epochs during training')
-    parser.add_argument('--lr', type=float, default=1e-4, help='Learning rate')
-    parser.add_argument('--weight_dacay', type=float, default=1e-10, help='L2 regularization weight')
-    parser.add_argument('--scheduler', type=str, default=None, help='Scheduler')
-    parser.add_argument('--lr_step_size', type=int, default=20, help='Learning rate step size')
-    parser.add_argument('--lr_factor', type=float, default=0.5, help='Learning rate factor')
-    parser.add_argument('--lr_patience', type=int, default=20, help='Learning rate patience')
-    parser.add_argument('--clip_norm', type=float, default=0.65, help='Clipping norm')
-    parser.add_argument('--seed', type=int, default=0, help='Random seed')
+    parser.add_argument('--train_size', type=int, default=opts.get("train_size", None), help='Number of training data')
+    parser.add_argument('--valid_dir', type=str, default=opts.get("valid_dir", None), help='Directory with validating data')
+    parser.add_argument('--loss', type=str, choices=['assignment', 'marginal'], default=opts.get("loss", 'marginal'), help='Loss type for SAT solving')
+    parser.add_argument('--restore', type=str, default=opts.get("restore", None), help='Continue training from a checkpoint')
+    parser.add_argument('--save_model_epochs', type=int, default=opts.get("save_model_epochs", 1), help='Number of epochs between model savings')
+    parser.add_argument('--num_workers', type=int, default=opts.get("num_workers", 8), help='Number of workers for data loading')
+    parser.add_argument('--batch_size', type=int, default=opts.get("batch_size", 128), help='Batch size')
+    parser.add_argument('--epochs', type=int, default=opts.get("epochs", 200), help='Number of epochs during training')
+    parser.add_argument('--lr', type=float, default=opts.get("lr", 1e-4), help='Learning rate')
+    parser.add_argument('--weight_dacay', type=float, default=opts.get("weight_decay", 1e-10), help='L2 regularization weight')
+    parser.add_argument('--scheduler', type=str, default=opts.get("scheduler", None), help='Scheduler')
+    parser.add_argument('--lr_step_size', type=int, default=opts.get("lr_step_size", 20), help='Learning rate step size')
+    parser.add_argument('--lr_factor', type=float, default=opts.get("lr_factor", 0.5), help='Learning rate factor')
+    parser.add_argument('--lr_patience', type=int, default=opts.get("lr_patience", 20), help='Learning rate patience')
+    parser.add_argument('--clip_norm', type=float, default=opts.get("clip_norm", 0.65), help='Clipping norm')
+    parser.add_argument('--seed', type=int, default=opts.get("seed", 0), help='Random seed')
 
-    add_model_options(parser)
+    add_model_options(parser, opts=opts)
 
     # opts = parser.parse_args()
     # Parse arguments when using Jupyter Notebook: https://stackoverflow.com/a/72670647/11750716
@@ -84,7 +94,15 @@ def main():
     sys.stdout = Logger(opts.log, sys.stdout)
     sys.stderr = Logger(opts.log, sys.stderr)
 
-    opts.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+    opts.device = "cpu"
+    if torch.cuda.is_available():
+        opts.device = "cuda"
+    elif torch.backends.mps.is_available():
+        # Check that MPS is available (MacBook with M1 / M2 chip)
+        # https://pytorch.org/docs/stable/notes/mps.html
+        opts.device = "mps"
+
+    # opts.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     print(opts)
 
     models = {
@@ -134,7 +152,7 @@ def main():
         train_cnt = 0
 
         model.train()
-        for data in train_loader:
+        for data in tqdm(train_loader):
             optimizer.zero_grad()
             data = data.to(opts.device)
             batch_size = data.c_size.shape[0]
@@ -164,8 +182,8 @@ def main():
 
                 v_assign = (v_prob > 0.5).float()
                 l_assign = v_assign.reshape(-1)
-                c_sat = torch.clamp(scatter_sum(l_assign[l_edge_index], c_edge_index, dim=0, dim_size=c_size), max=1)
-                sat_batch = (scatter_sum(c_sat, c_batch, dim=0, dim_size=batch_size) == data.c_size).float()
+                c_sat = torch.clamp(torch.scatter_add(l_assign[l_edge_index], c_edge_index, dim=0, dim_size=c_size), max=1)
+                sat_batch = (torch.scatter_add(c_sat, c_batch, dim=0, dim_size=batch_size) == data.c_size).float()
                 train_cnt += sat_batch.sum().item()
 
             train_loss += loss.item() * batch_size
@@ -231,8 +249,8 @@ def main():
                         v_assign = (v_prob > 0.5).float()
                         preds = v_assign[:, 0]
                         l_assign = v_assign.reshape(-1)
-                        c_sat = torch.clamp(scatter_sum(l_assign[l_edge_index], c_edge_index, dim=0, dim_size=c_size), max=1)
-                        sat_batch = (scatter_sum(c_sat, c_batch, dim=0, dim_size=batch_size) == data.c_size).float()
+                        c_sat = torch.clamp(torch.scatter_add(l_assign[l_edge_index], c_edge_index, dim=0, dim_size=c_size), max=1)
+                        sat_batch = (torch.scatter_add(c_sat, c_batch, dim=0, dim_size=batch_size) == data.c_size).float()
                         valid_cnt += sat_batch.sum().item()
 
                 valid_loss += loss.item() * batch_size

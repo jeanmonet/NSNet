@@ -3,7 +3,17 @@ import torch.nn as nn
 import math
 
 from models.mlp import MLP
-from torch_scatter import scatter_sum, scatter_logsumexp
+
+# pytorch-scatter ported to pytorch main
+# https://github.com/rusty1s/pytorch_scatter/issues/241#issuecomment-1336116049
+# from torch_scatter import scatter_sum, scatter_logsumexp
+
+from utils.scatter import scatter_sum
+from utils.scatter import scatter_logsumexp
+# from torch.scatter_reduce import scatter_sum
+# from torch.scatter_reduce import scatter_logsumexp
+
+
 
 
 class NSNet(nn.Module):

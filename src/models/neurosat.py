@@ -4,7 +4,10 @@ import math
 
 from models.mlp import MLP
 from models.ln_lstm_cell import LayerNormBasicLSTMCell
-from torch_scatter import scatter_sum, scatter_mean
+
+# from torch_scatter import scatter_sum, scatter_mean
+from utils.scatter import scatter_sum
+from utils.scatter import scatter_mean
 
 
 class NeuroSAT(nn.Module):
