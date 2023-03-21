@@ -1,7 +1,7 @@
 import torch
 
 
-def broadcast(src: torch.Tensor, other: torch.Tensor, dim: int):
+def broadcast(src: torch.Tensor, other: torch.Tensor, dim: int) -> torch.Tensor:
     # From https://github.com/rusty1s/pytorch_scatter/
     if dim < 0:
         dim = other.dim() + dim
@@ -14,9 +14,13 @@ def broadcast(src: torch.Tensor, other: torch.Tensor, dim: int):
     return src
 
 
-def scatter_sum(src: torch.Tensor, index: torch.Tensor, dim: int = -1,
-                out: torch.Tensor | None = None,
-                dim_size: int | None = None) -> torch.Tensor:
+def scatter_sum(
+    src: torch.Tensor,
+    index: torch.Tensor,
+    dim: int = -1,
+    out: torch.Tensor | None = None,
+    dim_size: int | None = None,
+) -> torch.Tensor:
     # From https://github.com/rusty1s/pytorch_scatter/
     index = broadcast(index, src, dim)
     if out is None:
@@ -28,12 +32,16 @@ def scatter_sum(src: torch.Tensor, index: torch.Tensor, dim: int = -1,
         else:
             size[dim] = int(index.max()) + 1
         out = torch.zeros(size, dtype=src.dtype, device=src.device)
-    return out.scatter_add_(dim, index, src)
+    return torch.scatter_add(input=out, dim=dim, index=index, src=src)
 
 
-def scatter_mean(src: torch.Tensor, index: torch.Tensor, dim: int = -1,
-                 out: torch.Tensor | None = None,
-                 dim_size: int | None = None) -> torch.Tensor:
+def scatter_mean(
+    src: torch.Tensor,
+    index: torch.Tensor,
+    dim: int = -1,
+    out: torch.Tensor | None = None,
+    dim_size: int | None = None,
+) -> torch.Tensor:
 
     index = broadcast(index, src, dim)
     if out is None:
@@ -46,9 +54,9 @@ def scatter_mean(src: torch.Tensor, index: torch.Tensor, dim: int = -1,
             size[dim] = int(index.max()) + 1
         out = torch.zeros(size, dtype=src.dtype, device=src.device)
     # Using https://pytorch.org/docs/stable/generated/torch.Tensor.scatter_reduce_.html
-    return out.scatter_reduce_(dim=dim, index=index, src=src, reduce="mean", include_self=False)
+    return torch.scatter_reduce(input=out, dim=dim, index=index, src=src, reduce="mean", include_self=False)
 
-    # --- Prevous Implem from: ---
+    # --- Prevous implem from: ---
     # --- https://github.com/rusty1s/pytorch_scatter/blob/master/torch_scatter/scatter.py ---
     out = scatter_sum(src, index, dim, out, dim_size)
     dim_size = out.size(dim)
@@ -87,24 +95,11 @@ def scatter_logsumexp(
 
     index = broadcast(index, src, dim)
 
-    # if out is not None:
-    #     dim_size = out.size(dim)
-    # else:
-    #     if dim_size is None:
-    #        dim_size = int(index.max()) + 1
-    if out is None:
-        size = list(src.size())
-        if dim_size is not None:
-            size[dim] = dim_size
-        elif index.numel() == 0:
-            size[dim] = 0
-        else:
-            size[dim] = int(index.max()) + 1
-        out = torch.zeros(size, dtype=src.dtype, device=src.device)
-    else:
+    if out is not None:
         dim_size = out.size(dim)
-
-
+    else:
+        if dim_size is None:
+            dim_size = int(index.max()) + 1
 
     size = list(src.size())
     size[dim] = dim_size
@@ -112,7 +107,8 @@ def scatter_logsumexp(
                                      device=src.device)
 
     # scatter_max(src, index, dim, max_value_per_index, dim_size=dim_size)[0]
-    max_value_per_index.scatter_reduce_(dim=dim, index=index, src=src, reduce="amax", include_self=False)
+    max_value_per_index = torch.scatter_reduce(
+        input=max_value_per_index, dim=dim, index=index, src=src, reduce="amax", include_self=False)
 
     max_per_src_element = max_value_per_index.gather(dim, index)
     recentered_score = src - max_per_src_element
@@ -121,8 +117,7 @@ def scatter_logsumexp(
     if out is not None:
         out = out.sub_(max_value_per_index).exp_()
 
-    # sum_per_index = scatter_sum(recentered_score.exp_(), index, dim, out,
-    #                             dim_size)
-    sum_per_index = out.scatter_add_(src=recentered_score.exp_(), index=index, dim=dim)
+    sum_per_index = scatter_sum(
+        src=recentered_score.exp_(), index=index, dim=dim, out=out, dim_size=dim_size)
 
     return sum_per_index.add_(eps).log_().add_(max_value_per_index)

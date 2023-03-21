@@ -26,6 +26,7 @@ from torch.optim.lr_scheduler import ReduceLROnPlateau, StepLR
 # https://github.com/rusty1s/pytorch_scatter/issues/241#issuecomment-1336116049
 # from torch_scatter import scatter_sum
 # from torch.scatter_reduce import scatter_sum
+from utils.scatter import scatter_sum
 
 from utils.options import add_model_options
 from utils.logger import Logger
@@ -134,7 +135,7 @@ def main(opts: ArgOpts = None):
     start_epoch = 0
     if opts.restore != None:
         print('Loading model checkpoint from %s..' % opts.restore)
-        if opts.device.type == 'cpu':
+        if opts.device == 'cpu':
             checkpoint = torch.load(opts.restore, map_location='cpu')
         else:
             checkpoint = torch.load(opts.restore)
@@ -173,17 +174,22 @@ def main(opts: ArgOpts = None):
                 if opts.loss == 'assignment':
                     preds = v_prob[:, 0]
                     labels = data.y
-                    loss = F.binary_cross_entropy(preds, labels)
+                    # The mean reduction divides the total loss by both the batch size and the support size.
+                    # However, batchmean divides only by the batch size
+                    # and aligns with the KL div math definition.
+                    # This means that batchmean is a more consistent choice
+                    # for loss reduction when training a model with a batch size greater than one.
+                    loss = F.binary_cross_entropy(preds, labels, reduction="batchmean")
                 else:
                     preds = v_prob
                     labels = data.y
                     labels = torch.stack([labels, 1-labels], dim=1)
-                    loss = F.kl_div(safe_log(preds), labels)
+                    loss = F.kl_div(safe_log(preds), labels, reduction="batchmean")
 
                 v_assign = (v_prob > 0.5).float()
                 l_assign = v_assign.reshape(-1)
-                c_sat = torch.clamp(torch.scatter_add(l_assign[l_edge_index], c_edge_index, dim=0, dim_size=c_size), max=1)
-                sat_batch = (torch.scatter_add(c_sat, c_batch, dim=0, dim_size=batch_size) == data.c_size).float()
+                c_sat = torch.clamp(scatter_sum(l_assign[l_edge_index], c_edge_index, dim=0, dim_size=c_size), max=1)
+                sat_batch = (scatter_sum(c_sat, c_batch, dim=0, dim_size=batch_size) == data.c_size).float()
                 train_cnt += sat_batch.sum().item()
 
             train_loss += loss.item() * batch_size
@@ -239,18 +245,18 @@ def main(opts: ArgOpts = None):
                         if opts.loss == 'assignment':
                             preds = v_prob[:, 0]
                             labels = data.y
-                            loss = F.binary_cross_entropy(preds, labels)
+                            loss = F.binary_cross_entropy(preds, labels, reduction="batchmean")
                         else:
                             preds = v_prob
                             labels = data.y
                             labels = torch.stack([labels, 1-labels], dim=1)
-                            loss = F.kl_div(safe_log(preds), labels)
+                            loss = F.kl_div(safe_log(preds), labels, reduction="batchmean")
 
                         v_assign = (v_prob > 0.5).float()
                         preds = v_assign[:, 0]
                         l_assign = v_assign.reshape(-1)
-                        c_sat = torch.clamp(torch.scatter_add(l_assign[l_edge_index], c_edge_index, dim=0, dim_size=c_size), max=1)
-                        sat_batch = (torch.scatter_add(c_sat, c_batch, dim=0, dim_size=batch_size) == data.c_size).float()
+                        c_sat = torch.clamp(scatter_sum(l_assign[l_edge_index], c_edge_index, dim=0, dim_size=c_size), max=1)
+                        sat_batch = (scatter_sum(c_sat, c_batch, dim=0, dim_size=batch_size) == data.c_size).float()
                         valid_cnt += sat_batch.sum().item()
 
                 valid_loss += loss.item() * batch_size

@@ -52,7 +52,7 @@ class NSNet(nn.Module):
             v_batch = data.v_batch
             c_bethes = []
             v_bethes = []
-        
+
         c2l_edges_feat = (self.c2l_edges_init / self.denom).repeat(num_edges, 1)
         l2c_edges_feat = (self.l2c_edges_init / self.denom).repeat(num_edges, 1)
 
@@ -88,4 +88,9 @@ class NSNet(nn.Module):
             l_logit = scatter_sum(c2l_edges_feat, sign_l_edge_index, dim=0, dim_size=l_size)
             l_logit = self.l_readout(l_logit)
             v_logit = l_logit.reshape(-1, 2)
+            # TEMP - check NaNs in model output
+            # res = self.softmax(v_logit)
+            # if res.isnan().sum() > 0:
+            #     raise ValueError("WE HAVE NANS IN FWD")
+            # return res
             return self.softmax(v_logit)

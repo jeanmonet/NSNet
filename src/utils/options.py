@@ -70,6 +70,7 @@ class ArgOpts:
             epochs=2,
             loss="marginal",       # loss type for SAT solving: "marginal" or "assignment"
             train_size=None,       # Number of training data
+            exp_id="NSNet",
         )
 
 
