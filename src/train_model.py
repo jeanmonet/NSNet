@@ -71,6 +71,8 @@ def main(opts: ArgOpts = None):
     parser.add_argument('--clip_norm', type=float, default=opts.get("clip_norm", 0.65), help='Clipping norm')
     parser.add_argument('--seed', type=int, default=opts.get("seed", 0), help='Random seed')
 
+    parser.add_argument('--device', type=str, default=opts.get("device", None), help='Device: cpu, cuda or mps')
+
     add_model_options(parser, opts=opts)
 
     # opts = parser.parse_args()
@@ -95,13 +97,14 @@ def main(opts: ArgOpts = None):
     sys.stdout = Logger(opts.log, sys.stdout)
     sys.stderr = Logger(opts.log, sys.stderr)
 
-    opts.device = "cpu"
-    if torch.cuda.is_available():
-        opts.device = "cuda"
-    elif torch.backends.mps.is_available():
-        # Check that MPS is available (MacBook with M1 / M2 chip)
-        # https://pytorch.org/docs/stable/notes/mps.html
-        opts.device = "mps"
+    if not opts.device:
+        opts.device = "cpu"
+        if torch.cuda.is_available():
+            opts.device = "cuda"
+        elif torch.backends.mps.is_available():
+            # Check that MPS is available (MacBook with M1 / M2 chip)
+            # https://pytorch.org/docs/stable/notes/mps.html
+            opts.device = "mps"
 
     # opts.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     print(opts)
