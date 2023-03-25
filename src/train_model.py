@@ -294,7 +294,7 @@ def main(opts: ArgOpts = None):
                 scheduler.step()
 
     # RETURN THE MODEL!!!
-    return model
+    return model, optimizer
 
 
 if __name__ == '__main__':
