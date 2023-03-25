@@ -182,12 +182,12 @@ def main(opts: ArgOpts = None):
                     # and aligns with the KL div math definition.
                     # This means that batchmean is a more consistent choice
                     # for loss reduction when training a model with a batch size greater than one.
-                    loss = F.binary_cross_entropy(preds, labels, reduction="batchmean")
+                    loss = F.binary_cross_entropy(preds, labels)  #, reduction="batchmean")
                 else:
                     preds = v_prob
                     labels = data.y
                     labels = torch.stack([labels, 1-labels], dim=1)
-                    loss = F.kl_div(safe_log(preds), labels, reduction="batchmean")
+                    loss = F.kl_div(safe_log(preds), labels)  #, reduction="batchmean")
 
                 v_assign = (v_prob > 0.5).float()
                 l_assign = v_assign.reshape(-1)
@@ -248,12 +248,12 @@ def main(opts: ArgOpts = None):
                         if opts.loss == 'assignment':
                             preds = v_prob[:, 0]
                             labels = data.y
-                            loss = F.binary_cross_entropy(preds, labels, reduction="batchmean")
+                            loss = F.binary_cross_entropy(preds, labels)  #, reduction="batchmean")
                         else:
                             preds = v_prob
                             labels = data.y
                             labels = torch.stack([labels, 1-labels], dim=1)
-                            loss = F.kl_div(safe_log(preds), labels, reduction="batchmean")
+                            loss = F.kl_div(safe_log(preds), labels)   #, reduction="batchmean")
 
                         v_assign = (v_prob > 0.5).float()
                         preds = v_assign[:, 0]
@@ -292,6 +292,9 @@ def main(opts: ArgOpts = None):
         else:
             if opts.scheduler is not None:
                 scheduler.step()
+
+    # RETURN THE MODEL!!!
+    return model
 
 
 if __name__ == '__main__':
