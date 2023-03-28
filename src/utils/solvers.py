@@ -23,7 +23,7 @@ class SATSolver:
                 self.cmd_line.append(str(opts.max_flips))
 
     def run(self, input_filepath):
-        filename = os.path.splitext(os.path.basename(input_filepath))[0]        
+        filename = os.path.splitext(os.path.basename(input_filepath))[0]
         cmd_line = self.cmd_line.copy()
         if self.opts.solver == 'Sparrow' and self.opts.model is not None:
             tmp_filepath = os.path.join(os.path.dirname(input_filepath), filename + '_' + self.opts.solver + '_' + self.opts.model + '.out')

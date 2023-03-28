@@ -1,7 +1,9 @@
 import torch
 import torch.nn as nn
 
-from torch_scatter import scatter_sum, scatter_logsumexp
+# from torch_scatter import scatter_sum, scatter_logsumexp
+from utils.scatter import scatter_sum
+from utils.scatter import scatter_logsumexp
 
 
 class BP(nn.Module):
