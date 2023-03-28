@@ -140,7 +140,7 @@ mamba install pytorch_geometric sympy networkx
 ```bash
 
 # First set variable with model path
-MODEL_PATH="src/runs/nsnet_base/checkpoints/model_150.pt"
+export MODEL_PATH="src/runs/nsnet_base/checkpoints/model_150.pt"
 
 # --- Then run testing scripts ---
 # This will run NSNet inference (of marginals) on CA, 3-SAT, and SR datasets.

@@ -1,4 +1,4 @@
-# MODEL_PATH="src/runs/nsnet_base/checkpoints/model_150.pt"
+# export MODEL_PATH="src/runs/nsnet_base/checkpoints/model_150.pt"
 
 # --- Infer marginals wiht NSNet and save in .out file for each CNF ---
 python src/run_model.py SATSolving/3-sat/test_hard --checkpoint $MODEL_PATH --model NSNet --n_rounds 10 --batch_size 32
