@@ -135,6 +135,25 @@ pip install cnfgen
 mamba install pytorch_geometric sympy networkx
 ```
 
+# Run experiments (after data generation and model training)
+
+```bash
+
+# First set variable with model path
+MODEL_PATH="src/runs/nsnet_base/checkpoints/model_150.pt"
+
+# --- Then run testing scripts ---
+# This will run NSNet inference (of marginals) on CA, 3-SAT, and SR datasets.
+# First it saves marginals in an `0000_NSNet.out` file for each `0000.cnf` file in each dataset.
+# Then script will run 10 trials of the modified Sparrow (`external/Sparrow/sparrow`) solver
+# (modified executable takes as argument `-f` path to initial marginal assingment values from NSNet)
+# and save experiment results in `runs/Sparrow/evaluations`
+# Finally, it will print solver statistics
+
+./scripts/sat_nsnet-sparrow.sh
+
+```
+
 
 
 # NSNet

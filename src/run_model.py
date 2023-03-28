@@ -14,6 +14,7 @@ import numpy as np
 import random
 import glob
 import time
+import warnings
 
 from utils.options import add_model_options
 from utils.dataloader import get_dataloader
@@ -28,7 +29,7 @@ def main():
     parser.add_argument('test_dir', type=str, help='Directory with testing data')
     parser.add_argument('--checkpoint', type=str, default=None, help='Checkpoint to be tested')
     parser.add_argument('--num_workers', type=int, default=8, help='Number of workers for data loading')
-    parser.add_argument('--batch_size', type=int, default=256, help='Batch size')
+    parser.add_argument('--batch_size', type=int, default=128, help='Batch size')
     parser.add_argument('--seed', type=int, default=0, help='Random seed')
     add_model_options(parser)
 
@@ -71,6 +72,11 @@ def main():
         model.load_state_dict(checkpoint['state_dict'], strict=False)
 
     model.to(opts.device)
+
+    # --- Silence warning ---
+    # /opt/miniconda3/envs/pt10/lib/python3.10/site-packages/torch_geometric/data/collate.py:145: UserWarning: TypedStorage is deprecated. It will be removed in the future and UntypedStorage will be the only storage class. This should only matter to you if you are using storages directly.  To access UntypedStorage directly, use tensor.untyped_storage() instead of tensor.storage()
+    # with warnings.catch_warnings():
+    warnings.simplefilter("ignore", UserWarning)
 
     print('Running...')
     model.eval()
