@@ -1,8 +1,15 @@
 python src/run_model.py ~/scratch/NSNet/SATSolving/sr/test_hard --checkpoint runs/sat_nsnet_sr_marginal/checkpoints/model_best.pt --model NSNet --n_rounds 10
 
-# python src/run_model.py ~/scratch/NSNet/SATSolving/sr/test_hard --checkpoint runs/sat_nsnet_sr_marginal/checkpoints/model_130.pt --model NSNet --n_rounds 10
+
+# --- Infer initial assignment ---
+
+# python src/run_model.py SATSolving/ca/test_hard --checkpoint runs/nsnet_base/checkpoints/model_150.pt --model NSNet --n_rounds 10
 
 # python src/run_model.py SATSolving/ca/test_hard --checkpoint runs/checkpoints/model_130.pt --model NSNet --n_rounds 10
+
+
+# --- Run solver with NSNet initial assignment ---
+
 # python src/test_sat_solver.py SATSolving/ca/test_hard --solver Sparrow --max_flips 100 --n_process 16 --trial 0 --model NSNet
 
 python src/test_sat_solver.py ~/scratch/NSNet/SATSolving/sr/test_hard --solver Sparrow --max_flips 100 --n_process 32 --trial 0 --model NSNet
