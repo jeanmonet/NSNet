@@ -1,6 +1,6 @@
 CC=clang
-CFLAGSO= -Wall -Wextra  -static  -O3 -funroll-loops -fexpensive-optimizations
-CFLAGSD=  -pg -ggdb -Wall -lm -Wno-missing-braces  -static
+CFLAGSO= -Wall -Wextra    -O3 -funroll-loops -fexpensive-optimizations
+CFLAGSD=  -pg -ggdb -Wall -lm -Wno-missing-braces  
 
 all: sparrow #sparrownX
 
