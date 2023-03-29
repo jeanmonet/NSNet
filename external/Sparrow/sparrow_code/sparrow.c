@@ -32,8 +32,8 @@
 
 //using namespace std; //g++
 
-#define MAXCLAUSELENGTH 20000 //maximum number of literals per clause
-#define STOREBLOCK  200000
+#define MAXCLAUSELENGTH 10000 //maximum number of literals per clause
+#define STOREBLOCK  20000
 
 # undef LLONG_MAX
 #define LLONG_MAX  9223372036854775807
@@ -61,6 +61,7 @@ int numClauses;
 int numLiterals;
 /** The value of the variables. The numbering starts at 1 and the possible values are 0 or 1. */
 char *atom;
+char *initialization_assign;
 /** The clauses of the formula represented as: clause[clause_number][literal_number].
  * The clause and literal numbering start both at 0.*/
 int **clause;
@@ -144,6 +145,7 @@ int keep_assig=0;
 /*----Input file variables----*/
 FILE *fp;
 char *fileName;
+char *initialization_file;
 /*---------*/
 
 /** Run time variables variables*/
@@ -163,7 +165,7 @@ int bestNumFalse;
 //Sparrow parameters flags - indicates if the parameters were set on the command line
 int c1_spec = 0, c2_spec = 0, c3_spec = 0, sp_spec = 0,sps_spec=0;
 int randomCspec=0;
-int sparray[100]= {0,100,600,1000,900,600,800,600,0}; //original setting
+int sparray[9]= {0,100,600,1000,900,600,800,600,0}; //original setting
 //int sparray[1000]= {0,100,600,1000,900,600,800,700,1000}; //original setting
 int num_sp=9;
 /*---------*/
@@ -202,6 +204,9 @@ void setCpuLimit() {
 
 void printFormulaProperties() {
 	fprintf(stderr, "c %-20s:  %s\n", "Instance name", fileName);
+	if (initialization_file != NULL) {
+		fprintf(stderr, "c %-20s:  %s\n", "Initialization file name", initialization_file);
+	}
 	fprintf(stderr, "c %-20s:  %d\n", "Number of variables", numVars);
 	fprintf(stderr, "c %-20s:  %d\n", "Number of literals", numLiterals);
 	fprintf(stderr, "c %-20s:  %d\n", "Number of Clauses", numClauses);
@@ -210,11 +215,11 @@ void printFormulaProperties() {
 	fprintf(stderr, "c %-20s:  %d\n", "MinClauseSize", minClauseSize);
 	fprintf(stderr, "c %-20s:  %6.4f\n", "Ratio", (float) numClauses / (float) numVars);
 }
-inline void printHeader() {
+void printHeader() {
 	fprintf(stderr, "---------------Sparrow 2014 SAT Solver---------------\n");
 }
 
-inline void printClauseMigrationCounters(){
+void printClauseMigrationCounters(){
 	BIGINT total=statinc2+statdec3;
 	printf("\nc migrations of clauses from x-sat to y-sat (#xor ops = #numTruelit ops):\n");
 	printf("c %-30s: %-9lli (%6.2f X flips)\n", "total migration", total,(double)total/(double)flip);
@@ -321,6 +326,7 @@ void allocateMemory() {
 	// Allocating memory for the instance data (independent from the assignment).
 	numLiterals = numVars * 2;
 	atom = (char*) malloc(sizeof(char) * (numVars + 1));
+	initialization_assign = (char*) malloc(sizeof(char) * (numVars + 1));
 	clause = (int**) malloc(sizeof(int*) * (numClauses + 1));
 	numOccurrence = (int*) malloc(sizeof(int) * (numLiterals + 1));
 	occurrence = (int**) malloc(sizeof(int*) * (numLiterals + 1));
@@ -532,10 +538,24 @@ void parseFile() {
 	free(numOccurrenceT);
 	fclose(fp);
 
+	if (initialization_file != NULL) {
+		fp = NULL;
+		fp = fopen(initialization_file, "r");
+		if (fp == NULL) {
+			fprintf(stderr, "c Error: Not able to open the file: %s", initialization_file);
+			exit(-1);
+		}
+		int assign;
+		for (i = 1; i <= numVars; i++) {
+			fscanf(fp, "%d", &assign);
+			initialization_assign[i] = assign;
+		}
+		fprintf(stderr, "c Hint: Initialization file load successfully!\n");
+		fclose(fp);
+	}
 }
 
 void init() {
-	static int initialized=0;
 	register int i;
 	int critLit = 0, lit;
 	int *clptr;
@@ -549,13 +569,17 @@ void init() {
 	numWeight = 0;
 
 	for (i = 1; i <= numVars; i++) {
-		if ((!keep_assig)||(!initialized)){//new assigment should be generated
-			atom[i] = rand() % 2;
+		if ((!keep_assig)){//new assigment should be generated
+			if (initialization_file != NULL) {
+				atom[i] = initialization_assign[i];
+			}
+			else{
+				atom[i] = rand() % 2;
+			}
 		}
 		score[i] = 0;
 		varLastChange[i] = -1; //-1 means never changed
 	}
-	initialized = !initialized;
 	//pass trough all clauses and apply the assignment previously generated
 	for (i = 1; i <= numClauses; i++) {
 		clptr = & clause[i][0];
@@ -919,6 +943,7 @@ void printUsage() {//TODO: stimmt nicht mehr so ganz, überarbeiten
 	printf("\nUsage of sparrow:\n");
 	printf("./sparrow [options] <DIMACS CNF instance> [<seed>]\n");
 	printf("\nSparrow options:\n");
+	printf("-f or --initialization <file> : variable initialization (default: random)\n");
 	printf("--c1 <double_value> : c1 constant from the Sparrow heuristic (default: 3sat:2.15; 5sat:2.855; 7sat:6.5)\n");
 	printf("--c2 <int_value> : c2 constant from the Sparrow heuristic (default: 3sat,5sat,7sat:4)\n");
 	printf("--c3 <int_value> : c3 constant from the Sparrow heuristic (default: 3sat,7sat:10⁵; 5sat:0.75*10⁵)\n");
@@ -942,50 +967,42 @@ void initSparrow() {
 		scorePow[i] = pow(c1, -i);
 	}
 	inv_c3 = 1. / c3;
+	
+	if (initialization_file != NULL) {
+		atom[i] = initialization_assign[i];
+	}
 }
 
 void parseParameters(int argc, char *argv[]) {
 	double spParam;
 	//define the argument parser
-	static const struct option long_options[] =
-			{{ "luby_base", required_argument, 0, 'u' },
-			{ "luby", no_argument, 0, 'l' },
-			{ "timeout", required_argument, 0, 11 },
-			{ "randomc", required_argument, 0, 'r' },
-			{ "c1", required_argument, 0, 'b' },
-			{ "c2", required_argument, 0, 'e' },
-			{ "c3", required_argument, 0, 'd' },
-			{ "sp", required_argument, 0, 'p' },
-			{ "sps1", required_argument, 0, 1 },
-			{ "sps2", required_argument, 0, 2 },
-			{ "sps3", required_argument, 0, 3 },
-			{ "sps4", required_argument, 0, 4 },
-			{ "sps5", required_argument, 0, 5 },
-			{ "sps6", required_argument, 0, 6 },
-			{ "sps7", required_argument, 0, 7 },
-			{ "sps8", required_argument, 0, 8 },
-			{ "sps9", required_argument, 0, 9 },
-			{ "sps10", required_argument, 0, 10 },
-			{ "runs", required_argument, 0, 't' },
-			{ "maxflips", required_argument, 0, 'm' },
-			{ "printSolution", no_argument, 0, 'a' },
-			{ "help", no_argument, 0, 'h' },
-			{ 0, 0, 0, 0 }};
+	static const struct option long_options[] = {
+		{ "initialization", required_argument, 0, 'f' },
+		{ "luby_base", required_argument, 0, 'u' }, 
+		{ "luby", no_argument, 0, 'l' }, 
+		{ "timeout", required_argument, 0, 11 }, 
+		{ "randomc", required_argument, 0, 'r' }, 
+		{ "c1", required_argument, 0, 'b' }, 
+		{ "c2", required_argument, 0, 'e' }, 
+		{ "c3", required_argument, 0, 'd' }, 
+		{ "sp", required_argument, 0, 'p' }, 
+		{ "runs", required_argument, 0, 't' }, 
+		{ "maxflips", required_argument, 0, 'm' },
+		{ "printSolution", no_argument, 0, 'a' },
+		{ "help", no_argument, 0, 'h' }, 
+		{ 0, 0, 0, 0 } 
+	};
 
 	while (optind < argc) {
 		int index = -1;
 		struct option * opt = 0;
-		int result = getopt_long(argc, argv, "b:e:d:p:t:m:ahr:lu:k", long_options, &index); //
+		int result = getopt_long(argc, argv, "b:e:d:p:t:m:ahr:lu:kf:", long_options, &index); //
 		if (result == -1)
 			break; /* end of list */
-		if ((result>=1)&&(result<=10)){
-			if (!sps_spec){
-							sps_spec=1;
-							num_sp=10;
-						}
-			sparray[result-1]=atof(optarg)*1000;
-		}else
 		switch (result) {
+		case 'f':
+			initialization_file = optarg;
+			break;
 		case 'u': // luby_base
 			luby_base = atoi(optarg);
 			break;
@@ -994,13 +1011,6 @@ void parseParameters(int argc, char *argv[]) {
 			break;
 		case 'k': //keep assignment after restart
 			keep_assig = 1;
-			break;
-		case 's': //sp sequence
-			if (!sps_spec){
-				sps_spec=1;
-				num_sp=0;
-			}
-			sparray[num_sp++] = atof(optarg)*1000;
 			break;
 		case 'l': //use luby restarts?
 			use_luby = 1;
@@ -1028,13 +1038,13 @@ void parseParameters(int argc, char *argv[]) {
 			break;
 		case 'r': //select clause randomly
 			randomC = atoi(optarg);
-			randomCspec=1;
+			randomCspec = 1;
 			break;
 		case 't': //maximum number of tries to solve the problems within the cutoff
-			maxTries = strtol(optarg,NULL,10);
+			maxTries = strtol(optarg, NULL, 10);
 			break;
 		case 'm': //maximum number of flips to solve the problem
-			maxFlips = strtol(optarg,NULL,10);
+			maxFlips = strtol(optarg, NULL, 10);
 			break;
 		case 'a': //print assigment of variables
 			printSol = 1;
@@ -1043,8 +1053,7 @@ void parseParameters(int argc, char *argv[]) {
 			/* appear in the optstring */
 			opt = (struct option *) &(long_options[index]);
 			printf("'%s' was specified.", opt->name);
-			if (opt->has_arg == required_argument
-			)
+			if (opt->has_arg == required_argument)
 				printf("Arg: <%s>", optarg);
 			printf("\n");
 			break;
@@ -1142,16 +1151,6 @@ void setupSparrowParameters() {
 		}
 }
 
-
-
-	//int sparray[7]= {0,100,200,600,800,900,1000}; //this the minimum hitting set in exp153 on sat2013
-	//according to exp153 if we analyze the sp importance as the number of times the run was used by the vbs
-	//int sps[11] = { 1000, 0, 100, 800, 600, 700, 900, 200, 500, 400, 300 };
-	//vbs contribution
-	//float sp_p[11] = { 0.170918367346939, 0.14030612244898, 0.127551020408163, 0.102040816326531, 0.0841836734693877, 0.0688775510204082, 0.0688775510204082,
-	//		0.0663265306122449, 0.0637755102040816, 0.0535714285714286, 0.0535714285714286 };
-	//float sp_sum=0,sp_pos;
-
 int main(int argc, char *argv[]) {
 	tryTime = 0.;
 	parseParameters(argc, argv);
@@ -1175,19 +1174,20 @@ int main(int argc, char *argv[]) {
 			sp = sparray[tryn%num_sp];
 			//fprintf(stderr, "c sp= %4d next restart after %4lld * %6d = %7lld flips\n", sp, maxFlips / luby_base, luby_base, maxFlips);
 		}
-		for (flip = 1; flip <=maxFlips; flip++) {
-			if (numFalse == 0)
-				break;
-			pickVar();
-			flipAtom();
-			varLastChange[bestVar] = flip;
-			printStatsEndFlip(); //update bestNumFalse
-			totalFlips++;
-			if (totalFlips>=allowedFlips){
-				maxTries=0;
-				break;
+		if (numFalse != 0) {
+			for (flip = 1; flip <=maxFlips; flip++) {
+				pickVar();
+				flipAtom();
+				varLastChange[bestVar] = flip;
+				printStatsEndFlip(); //update bestNumFalse
+				totalFlips++;
+				if (totalFlips>=allowedFlips){
+					maxTries=0;
+					break;
+				}
+				if (numFalse == 0)
+					break;
 			}
-
 		}
 		tryTime = elapsed_seconds();
 		totalTime += tryTime;
