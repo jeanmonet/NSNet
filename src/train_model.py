@@ -71,7 +71,7 @@ def main(opts: ArgOpts = None):
     parser.add_argument('--lr_patience', type=int, default=opts.get("lr_patience", 20), help='Learning rate patience')
     parser.add_argument('--clip_norm', type=float, default=opts.get("clip_norm", 0.65), help='Clipping norm')
     parser.add_argument('--seed', type=int, default=opts.get("seed", 0), help='Random seed')
-    parser.add_argument('--valid_epochs', type=int, default=opts.get("valid_epochs", 5), help='Run validation every x epochs')
+    parser.add_argument('--valid_epochs', type=int, default=opts.get("valid_epochs", 1), help='Run validation every x epochs. Needed to correspond with scheduler if set')
 
     parser.add_argument('--device', type=str, default=opts.get("device", None), help='Device: cpu, cuda or mps')
 
