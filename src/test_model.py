@@ -1,3 +1,5 @@
+import warnings
+
 import torch
 import torch.nn.functional as F
 import os
@@ -91,33 +93,39 @@ def main():
     solved = 0
 
     print('Testing...')
-    model.eval()
-    for data in test_loader:
-        data = data.to(opts.device)
-        batch_size = data.c_size.shape[0]
-        with torch.no_grad():
-            if opts.task == 'model-counting':
-                preds = model(data)
-                labels = data.y
-                all_results.extend(preds.tolist())
-                mse = F.mse_loss(preds, labels).item()
-                rmse += mse * batch_size
-            else:
-                c_size = data.c_size.sum().item()
-                c_batch = data.c_batch
-                l_edge_index = data.l_edge_index
-                c_edge_index = data.c_edge_index
 
-                v_prob = model(data)
-                v_assign = (v_prob > 0.5).float()
-                preds = v_assign[:, 0]
-                l_assign = v_assign.reshape(-1)
-                c_sat = torch.clamp(scatter_sum(l_assign[l_edge_index], c_edge_index, dim=0, dim_size=c_size), max=1)
-                sat_batch = (scatter_sum(c_sat, c_batch, dim=0, dim_size=batch_size) == data.c_size).float()
-                all_results.extend(sat_batch.tolist())
-                solved += sat_batch.sum().item()
-            
-        tot += batch_size
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore", UserWarning)
+        # /opt/miniconda3/envs/pt10/lib/python3.10/site-packages/torch_geometric/data/collate.py:145: UserWarning: TypedStorage is deprecated. It will be removed in the future and UntypedStorage will be the only storage class. This should only matter to you if you are using storages directly.  To access UntypedStorage directly, use tensor.untyped_storage() instead of tensor.storage()
+        # /opt/miniconda3/envs/pt10/lib/python3.10/site-packages/torch/nn/functional.py:2919: UserWarning: reduction: 'mean' divides the total loss by both the batch size and the support size.'batchmean' divides only by the batch size, and aligns with the KL div math definition.'mean' will be changed to behave the same as 'batchmean' in the next major release.
+
+        model.eval()
+        for data in test_loader:
+            data = data.to(opts.device)
+            batch_size = data.c_size.shape[0]
+            with torch.no_grad():
+                if opts.task == 'model-counting':
+                    preds = model(data)
+                    labels = data.y
+                    all_results.extend(preds.tolist())
+                    mse = F.mse_loss(preds, labels).item()
+                    rmse += mse * batch_size
+                else:
+                    c_size = data.c_size.sum().item()
+                    c_batch = data.c_batch
+                    l_edge_index = data.l_edge_index
+                    c_edge_index = data.c_edge_index
+
+                    v_prob = model(data)
+                    v_assign = (v_prob > 0.5).float()
+                    preds = v_assign[:, 0]
+                    l_assign = v_assign.reshape(-1)
+                    c_sat = torch.clamp(scatter_sum(l_assign[l_edge_index], c_edge_index, dim=0, dim_size=c_size), max=1)
+                    sat_batch = (scatter_sum(c_sat, c_batch, dim=0, dim_size=batch_size) == data.c_size).float()
+                    all_results.extend(sat_batch.tolist())
+                    solved += sat_batch.sum().item()
+
+            tot += batch_size
     
     if opts.task == 'model-counting':
         rmse = math.sqrt(rmse / tot)

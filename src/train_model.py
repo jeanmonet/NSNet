@@ -6,6 +6,7 @@
 # Run (this) script -> specify output folder
 % python src/train_model.py sat-solving NSNet /opt/files/maio2022/SAT/NSNet/SATSolving/SATLIB --model NSNet
 """
+import warnings
 
 import torch
 import torch.nn as nn
@@ -148,152 +149,158 @@ def main(opts: ArgOpts = None):
         start_epoch = checkpoint['epoch'] + 1
         model.to(opts.device)
 
-    for epoch in range(start_epoch, start_epoch + opts.epochs):
-        print('EPOCH #%d' % epoch)
-        print('Training...')
-        train_loss = 0
-        train_tot = 0
-        train_rmse = 0
-        train_cnt = 0
 
-        model.train()
-        for data in tqdm(train_loader):
-            optimizer.zero_grad()
-            data = data.to(opts.device)
-            batch_size = data.c_size.shape[0]
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore", UserWarning)
+        # /opt/miniconda3/envs/pt10/lib/python3.10/site-packages/torch_geometric/data/collate.py:145: UserWarning: TypedStorage is deprecated. It will be removed in the future and UntypedStorage will be the only storage class. This should only matter to you if you are using storages directly.  To access UntypedStorage directly, use tensor.untyped_storage() instead of tensor.storage()
+        # /opt/miniconda3/envs/pt10/lib/python3.10/site-packages/torch/nn/functional.py:2919: UserWarning: reduction: 'mean' divides the total loss by both the batch size and the support size.'batchmean' divides only by the batch size, and aligns with the KL div math definition.'mean' will be changed to behave the same as 'batchmean' in the next major release.
 
-            if opts.task == 'model-counting':
-                preds = model(data)
-                labels = data.y
-                loss = F.mse_loss(preds, labels)
-                mse = loss.item()
-                train_rmse += mse * batch_size
-            else:
-                v_prob = model(data)
-                c_size = data.c_size.sum().item()
-                c_batch = data.c_batch
-                l_edge_index = data.l_edge_index
-                c_edge_index = data.c_edge_index
+        for epoch in range(start_epoch, start_epoch + opts.epochs):
+            print('EPOCH #%d' % epoch)
+            print('Training...')
+            train_loss = 0
+            train_tot = 0
+            train_rmse = 0
+            train_cnt = 0
 
-                if opts.loss == 'assignment':
-                    preds = v_prob[:, 0]
-                    labels = data.y
-                    # The mean reduction divides the total loss by both the batch size and the support size.
-                    # However, batchmean divides only by the batch size
-                    # and aligns with the KL div math definition.
-                    # This means that batchmean is a more consistent choice
-                    # for loss reduction when training a model with a batch size greater than one.
-                    loss = F.binary_cross_entropy(preds, labels)  #, reduction="batchmean")
-                else:
-                    preds = v_prob
-                    labels = data.y
-                    labels = torch.stack([labels, 1-labels], dim=1)
-                    loss = F.kl_div(safe_log(preds), labels)  #, reduction="batchmean")
-
-                v_assign = (v_prob > 0.5).float()
-                l_assign = v_assign.reshape(-1)
-                c_sat = torch.clamp(scatter_sum(l_assign[l_edge_index], c_edge_index, dim=0, dim_size=c_size), max=1)
-                sat_batch = (scatter_sum(c_sat, c_batch, dim=0, dim_size=batch_size) == data.c_size).float()
-                train_cnt += sat_batch.sum().item()
-
-            train_loss += loss.item() * batch_size
-            train_tot += batch_size
-            loss.backward()
-            torch.nn.utils.clip_grad_norm_(model.parameters(), opts.clip_norm)
-            optimizer.step()
-
-        train_loss /= train_tot
-        print('Training LR: %f, Training loss: %f' % (optimizer.param_groups[0]['lr'], train_loss))
-
-        if opts.task == 'model-counting':
-            train_rmse = math.sqrt(train_rmse / train_tot)
-            print('Training RMSE: %f' % train_rmse)
-        else:
-            train_acc = train_cnt / train_tot
-            print('Training accuracy: %f' % train_acc)
-
-        if epoch % opts.save_model_epochs == 0:
-            torch.save({
-                'state_dict': model.state_dict(), 
-                'epoch': epoch,
-                'optimizer': optimizer.state_dict()}, 
-                os.path.join(opts.checkpoint_dir, 'model_%d.pt' % epoch)
-            )
-
-        if opts.valid_dir is not None and epoch % opts.valid_epochs == 0:
-            # Validate every x number of epochs
-            print('Validating...')
-
-            valid_loss = 0
-            valid_tot = 0
-            valid_rmse = 0
-            valid_cnt = 0
-
-            model.eval()
-            for data in valid_loader:
+            model.train()
+            for data in tqdm(train_loader):
+                optimizer.zero_grad()
                 data = data.to(opts.device)
                 batch_size = data.c_size.shape[0]
-                with torch.no_grad():
-                    if opts.task == 'model-counting':
-                        preds = model(data)
+
+                if opts.task == 'model-counting':
+                    preds = model(data)
+                    labels = data.y
+                    loss = F.mse_loss(preds, labels)
+                    mse = loss.item()
+                    train_rmse += mse * batch_size
+                else:
+                    v_prob = model(data)
+                    c_size = data.c_size.sum().item()
+                    c_batch = data.c_batch
+                    l_edge_index = data.l_edge_index
+                    c_edge_index = data.c_edge_index
+
+                    if opts.loss == 'assignment':
+                        preds = v_prob[:, 0]
                         labels = data.y
-                        loss = F.mse_loss(preds, labels)
-                        mse = loss.item()
-                        valid_rmse += mse * batch_size
+                        # The mean reduction divides the total loss by both the batch size and the support size.
+                        # However, batchmean divides only by the batch size
+                        # and aligns with the KL div math definition.
+                        # This means that batchmean is a more consistent choice
+                        # for loss reduction when training a model with a batch size greater than one.
+                        loss = F.binary_cross_entropy(preds, labels)  #, reduction="batchmean")
                     else:
-                        v_prob = model(data)
-                        c_size = data.c_size.sum().item()
-                        c_batch = data.c_batch
-                        l_edge_index = data.l_edge_index
-                        c_edge_index = data.c_edge_index
+                        preds = v_prob
+                        labels = data.y
+                        labels = torch.stack([labels, 1-labels], dim=1)
+                        loss = F.kl_div(safe_log(preds), labels)  #, reduction="batchmean")
 
-                        if opts.loss == 'assignment':
-                            preds = v_prob[:, 0]
-                            labels = data.y
-                            loss = F.binary_cross_entropy(preds, labels)  #, reduction="batchmean")
-                        else:
-                            preds = v_prob
-                            labels = data.y
-                            labels = torch.stack([labels, 1-labels], dim=1)
-                            loss = F.kl_div(safe_log(preds), labels)   #, reduction="batchmean")
+                    v_assign = (v_prob > 0.5).float()
+                    l_assign = v_assign.reshape(-1)
+                    c_sat = torch.clamp(scatter_sum(l_assign[l_edge_index], c_edge_index, dim=0, dim_size=c_size), max=1)
+                    sat_batch = (scatter_sum(c_sat, c_batch, dim=0, dim_size=batch_size) == data.c_size).float()
+                    train_cnt += sat_batch.sum().item()
 
-                        v_assign = (v_prob > 0.5).float()
-                        preds = v_assign[:, 0]
-                        l_assign = v_assign.reshape(-1)
-                        c_sat = torch.clamp(scatter_sum(l_assign[l_edge_index], c_edge_index, dim=0, dim_size=c_size), max=1)
-                        sat_batch = (scatter_sum(c_sat, c_batch, dim=0, dim_size=batch_size) == data.c_size).float()
-                        valid_cnt += sat_batch.sum().item()
+                train_loss += loss.item() * batch_size
+                train_tot += batch_size
+                loss.backward()
+                torch.nn.utils.clip_grad_norm_(model.parameters(), opts.clip_norm)
+                optimizer.step()
 
-                valid_loss += loss.item() * batch_size
-                valid_tot += batch_size
-
-            valid_loss /= valid_tot
-            print('Validating loss: %f' % valid_loss)
+            train_loss /= train_tot
+            print('Training LR: %f, Training loss: %f' % (optimizer.param_groups[0]['lr'], train_loss))
 
             if opts.task == 'model-counting':
-                valid_rmse = math.sqrt(valid_rmse / valid_tot)
-                print('Validating RMSE: %f' % valid_rmse)
+                train_rmse = math.sqrt(train_rmse / train_tot)
+                print('Training RMSE: %f' % train_rmse)
             else:
-                valid_acc = valid_cnt / valid_tot
-                print('Validating accuracy: %f' % valid_acc)
+                train_acc = train_cnt / train_tot
+                print('Training accuracy: %f' % train_acc)
 
-            if valid_loss < best_loss:
-                best_loss = valid_loss
+            if epoch % opts.save_model_epochs == 0:
                 torch.save({
-                    'state_dict': model.state_dict(),
-                    'epoch': epoch, 
+                    'state_dict': model.state_dict(), 
+                    'epoch': epoch,
                     'optimizer': optimizer.state_dict()}, 
-                    os.path.join(opts.checkpoint_dir, 'model_best.pt')
+                    os.path.join(opts.checkpoint_dir, 'model_%d.pt' % epoch)
                 )
 
-            if opts.scheduler is not None:
-                if opts.scheduler == 'ReduceLROnPlateau':
-                    scheduler.step(valid_loss)
+            if opts.valid_dir is not None and epoch % opts.valid_epochs == 0:
+                # Validate every x number of epochs
+                print('Validating...')
+
+                valid_loss = 0
+                valid_tot = 0
+                valid_rmse = 0
+                valid_cnt = 0
+
+                model.eval()
+                for data in valid_loader:
+                    data = data.to(opts.device)
+                    batch_size = data.c_size.shape[0]
+                    with torch.no_grad():
+                        if opts.task == 'model-counting':
+                            preds = model(data)
+                            labels = data.y
+                            loss = F.mse_loss(preds, labels)
+                            mse = loss.item()
+                            valid_rmse += mse * batch_size
+                        else:
+                            v_prob = model(data)
+                            c_size = data.c_size.sum().item()
+                            c_batch = data.c_batch
+                            l_edge_index = data.l_edge_index
+                            c_edge_index = data.c_edge_index
+
+                            if opts.loss == 'assignment':
+                                preds = v_prob[:, 0]
+                                labels = data.y
+                                loss = F.binary_cross_entropy(preds, labels)  #, reduction="batchmean")
+                            else:
+                                preds = v_prob
+                                labels = data.y
+                                labels = torch.stack([labels, 1-labels], dim=1)
+                                loss = F.kl_div(safe_log(preds), labels)   #, reduction="batchmean")
+
+                            v_assign = (v_prob > 0.5).float()
+                            preds = v_assign[:, 0]
+                            l_assign = v_assign.reshape(-1)
+                            c_sat = torch.clamp(scatter_sum(l_assign[l_edge_index], c_edge_index, dim=0, dim_size=c_size), max=1)
+                            sat_batch = (scatter_sum(c_sat, c_batch, dim=0, dim_size=batch_size) == data.c_size).float()
+                            valid_cnt += sat_batch.sum().item()
+
+                    valid_loss += loss.item() * batch_size
+                    valid_tot += batch_size
+
+                valid_loss /= valid_tot
+                print('Validating loss: %f' % valid_loss)
+
+                if opts.task == 'model-counting':
+                    valid_rmse = math.sqrt(valid_rmse / valid_tot)
+                    print('Validating RMSE: %f' % valid_rmse)
                 else:
+                    valid_acc = valid_cnt / valid_tot
+                    print('Validating accuracy: %f' % valid_acc)
+
+                if valid_loss < best_loss:
+                    best_loss = valid_loss
+                    torch.save({
+                        'state_dict': model.state_dict(),
+                        'epoch': epoch, 
+                        'optimizer': optimizer.state_dict()}, 
+                        os.path.join(opts.checkpoint_dir, 'model_best.pt')
+                    )
+
+                if opts.scheduler is not None:
+                    if opts.scheduler == 'ReduceLROnPlateau':
+                        scheduler.step(valid_loss)
+                    else:
+                        scheduler.step()
+            else:
+                if opts.scheduler is not None:
                     scheduler.step()
-        else:
-            if opts.scheduler is not None:
-                scheduler.step()
 
     # RETURN THE MODEL!!!
     return model, optimizer
