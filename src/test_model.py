@@ -15,7 +15,8 @@ from utils.dataloader import get_dataloader
 from models.bp import BP
 from models.nsnet import NSNet
 from models.neurosat import NeuroSAT
-from torch_scatter import scatter_sum
+# from torch_scatter import scatter_sum
+from utils.scatter import scatter_sum
 
 
 def main():
@@ -24,7 +25,7 @@ def main():
     parser.add_argument('test_dir', type=str, help='Directory with testing data')
     parser.add_argument('--checkpoint', type=str, default=None, help='Checkpoint to be tested')
     parser.add_argument('--num_workers', type=int, default=8, help='Number of workers for data loading')
-    parser.add_argument('--batch_size', type=int, default=512, help='Batch size')
+    parser.add_argument('--batch_size', type=int, default=128, help='Batch size')
     parser.add_argument('--seed', type=int, default=0, help='Random seed')
 
     add_model_options(parser)
