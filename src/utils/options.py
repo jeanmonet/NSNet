@@ -55,6 +55,11 @@ class ArgOpts:
         setattr(self, key, value)
         self._keys.add(key)
 
+    def __setattr__(self, name, value):
+        if name not in {"_keys", "set", "get"}:
+            self._keys.add(name)
+        super().__setattr__(name, value)
+
     def __repr__(self) -> str:
         return f"{self.__class__.__name__}({', '.join(f'{key}={getattr(self, key)!r}' for key in self._keys)})"
 
@@ -73,10 +78,30 @@ class ArgOpts:
             exp_id="NSNet",
         )
 
+    def add_model_options(self, **kwargs) -> None:
+        for key, value in kwargs.items():
+            setattr(self, key, value)
+        if not kwargs.get("model", None):
+            kwargs["model"] = "NSNet"            # model choice
+        if not kwargs.get("dim", None):
+            kwargs["dim"] = 64                   # Dimension of variable and clause embeddings
+        if not kwargs.get("n_rounds", None):
+            kwargs["n_rounds"] = 10              # Number of rounds of message passing
+        if not kwargs.get("n_mlp_layers", None):
+            kwargs["n_mlp_layers"] = 3           # Number of layers in all MLPs
+        if not kwargs.get("activation", None):
+            kwargs["activation"] = "relu"        # Activation function in all MLPs
+        # ---
+        if not kwargs.get("task", None):
+            kwargs["task"] = "sat-solving"       # Task choice
+        # ---
+        self._keys.update(set(kwargs.keys()))
+        for key, value in kwargs.items():
+            setattr(self, key, value)
 
 def add_model_options(parser, opts: ArgOpts | None = None):
     opts = opts or ArgOpts()    # empty by default (uses defaults passed below)
-    
+
     parser.add_argument('--model', type=str, default=opts.get("model", 'NSNet'), help='Model choice')
 
     parser.add_argument('--dim', type=int, default=opts.get("dim", 64), help='Dimension of variable and clause embeddings')

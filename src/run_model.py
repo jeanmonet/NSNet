@@ -7,34 +7,30 @@
 % python src/run_model.py /opt/files/maio2022/SAT/NSNet/SATSolving/SATLIB --model NSNet
 """
 
-import torch
 import os
 import argparse
-import numpy as np
 import random
 import glob
 import time
 import warnings
+from itertools import accumulate
+
+import numpy as np
+import torch
+from tqdm import tqdm
 
 from utils.options import add_model_options
 from utils.dataloader import get_dataloader
 from models.bp import BP
 from models.nsnet import NSNet
 from models.neurosat import NeuroSAT
-from itertools import accumulate
 
 
-def main():
-    parser = argparse.ArgumentParser()
-    parser.add_argument('test_dir', type=str, help='Directory with testing data')
-    parser.add_argument('--checkpoint', type=str, default=None, help='Checkpoint to be tested')
-    parser.add_argument('--num_workers', type=int, default=8, help='Number of workers for data loading')
-    parser.add_argument('--batch_size', type=int, default=128, help='Batch size')
-    parser.add_argument('--seed', type=int, default=0, help='Random seed')
-    add_model_options(parser)
+def run_model(opts, verbose: bool = False):
+    opts.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
-    opts = parser.parse_args()
-    opts.task = 'sat-solving'
+    if verbose:
+        print(opts)
 
     torch.manual_seed(opts.seed)
     torch.cuda.manual_seed(opts.seed)
@@ -43,9 +39,6 @@ def main():
     torch.backends.cudnn.benchmark = False
     np.random.seed(opts.seed)
     random.seed(opts.seed)
-
-    opts.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-    print(opts)
 
     t0 = time.time()
 
@@ -63,7 +56,8 @@ def main():
     all_files = [os.path.abspath(f) for f in all_files]
 
     if opts.checkpoint is not None:
-        print('Loading model checkpoint from %s..' % opts.checkpoint)
+        if verbose:
+            print('Loading model checkpoint from %s..' % opts.checkpoint)
         if opts.device.type == 'cpu':
             checkpoint = torch.load(opts.checkpoint, map_location='cpu')
         else:
@@ -73,15 +67,19 @@ def main():
 
     model.to(opts.device)
 
+    out_name = f"{opts.model}" + (f"_{opts.out_name}" if getattr(opts, "out_name", None) else "")
+
     # --- Silence warning ---
     # /opt/miniconda3/envs/pt10/lib/python3.10/site-packages/torch_geometric/data/collate.py:145: UserWarning: TypedStorage is deprecated. It will be removed in the future and UntypedStorage will be the only storage class. This should only matter to you if you are using storages directly.  To access UntypedStorage directly, use tensor.untyped_storage() instead of tensor.storage()
     # with warnings.catch_warnings():
     warnings.simplefilter("ignore", UserWarning)
 
-    print('Running...')
+    if verbose:
+        print(f'Running... (saving assignment to `[cnf filename]_{out_name}.out`)')
+
     model.eval()
     i = 0
-    for data in test_loader:
+    for data in tqdm(test_loader):
         data = data.to(opts.device)
         with torch.no_grad():
             v_probs = model(data)
@@ -92,7 +90,7 @@ def main():
                 assignment = assignments[offset-v_size:offset]
                 f = all_files[i]
                 filename = os.path.splitext(os.path.basename(f))[0]
-                tmp_filepath = os.path.join(os.path.dirname(f), filename + '_' + opts.model + '.out')
+                tmp_filepath = os.path.join(os.path.dirname(f), filename + '_' + out_name + '.out')
                 with open(tmp_filepath, 'w') as f:
                     for v in assignment:
                         f.write('%d ' % v)
@@ -102,7 +100,29 @@ def main():
     assert i == len(all_files)
 
     t = time.time() - t0
-    print('Running Time: %f' % t)
+    if verbose:
+        print('Running Time: %f' % t)
+
+    return t
+
+
+def main():
+    parser = argparse.ArgumentParser()
+    parser.add_argument('test_dir', type=str, help='Directory with testing data')
+    parser.add_argument('--checkpoint', type=str, default=None, help='Checkpoint to be tested')
+    parser.add_argument('--num_workers', type=int, default=8, help='Number of workers for data loading')
+    parser.add_argument('--batch_size', type=int, default=128, help='Batch size')
+    parser.add_argument('--seed', type=int, default=0, help='Random seed')
+    parser.add_argument('--model', type=str, default='NSNet', help='Model to be tested')
+    # Add argument that adds name to .out filename
+    parser.add_argument('--out_name', type=str, default=None, help='Name to be added to .out filename')
+
+    add_model_options(parser)
+
+    opts = parser.parse_args()
+    opts.task = 'sat-solving'
+
+    t = run_model(opts, verbose=True)
 
 
 if __name__ == '__main__':

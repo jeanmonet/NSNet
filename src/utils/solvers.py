@@ -13,21 +13,32 @@ class SATSolver:
     def __init__(self, opts):
         self.opts = opts
         if opts.solver == 'CaDiCaL':
-            self.exec_dir = os.path.abspath('external/CaDiCaL')
+            _path = os.path.abspath('external/CaDiCaL')
+            if _path.endswith("/src/external/CaDiCaL"):
+                # If the path ends with /src, remove it
+                _path = "".join(_path.split("/src"))
+            self.exec_dir = _path
             self.cmd_line = ['./cadical']
         elif opts.solver == 'Sparrow':
-            self.exec_dir = os.path.abspath('external/Sparrow')
+            _path = os.path.abspath('external/Sparrow')
+            if _path.endswith("/src/external/Sparrow"):
+                # If the path ends with /src, remove it
+                _path = "".join(_path.split("/src"))
+            self.exec_dir = _path
             self.cmd_line = ['./sparrow', '-a', '-l', '-r1']
             if opts.max_flips is not None:
                 self.cmd_line.append('--maxflips')
                 self.cmd_line.append(str(opts.max_flips))
+
+        if opts.model is not None:
+            self.out_name = f"{opts.model}" + (f"_{opts.out_name}" if getattr(opts, "out_name", None) else "")
 
     def run(self, input_filepath):
         filename = os.path.splitext(os.path.basename(input_filepath))[0]
         cmd_line = self.cmd_line.copy()
         if self.opts.solver == 'Sparrow' and self.opts.model is not None:
             tmp_filepath = os.path.join(os.path.dirname(input_filepath), filename + '_' + self.opts.solver + '_' + self.opts.model + '.out')
-            init_filepath = os.path.join(os.path.dirname(input_filepath), filename + '_' + self.opts.model + '.out')
+            init_filepath = os.path.join(os.path.dirname(input_filepath), filename + '_' + self.out_name + '.out')
             cmd_line.append('-f')
             cmd_line.append(init_filepath)
         else:

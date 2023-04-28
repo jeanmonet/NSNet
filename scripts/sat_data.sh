@@ -10,7 +10,7 @@ python src/generate_labels.py marginal /opt/files/maio2022/SAT/NSNet/SATSolving/
 python src/generate_labels.py assignment /opt/files/maio2022/SAT/NSNet/SATSolving/sr/train
 python src/generate_labels.py assignment /opt/files/maio2022/SAT/NSNet/SATSolving/sr/valid
 
-3-sat data
+# 3-sat data
 python src/generate_3-sat_data.py /opt/files/maio2022/SAT/NSNet/SATSolving/3-sat/train 30000 --min_n 10 --max_n 40
 python src/generate_3-sat_data.py /opt/files/maio2022/SAT/NSNet/SATSolving/3-sat/valid 10000 --min_n 10 --max_n 40
 python src/generate_3-sat_data.py /opt/files/maio2022/SAT/NSNet/SATSolving/3-sat/test 10000 --min_n 10 --max_n 40

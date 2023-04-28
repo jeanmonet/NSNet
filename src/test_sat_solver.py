@@ -1,3 +1,8 @@
+"""
+python src/test_sat_solver.py SATSolving/3-sat/test_hard --solver Sparrow --max_flips 100 --n_process 8 --trial 9 --model NSNet
+"""
+
+
 import os
 import sys
 import argparse
@@ -11,6 +16,44 @@ from utils.solvers import SATSolver
 from concurrent.futures.process import ProcessPoolExecutor
 
 
+def evaluate_sat_solver(opts, verbose: bool = False) -> tuple[list, float]:
+
+    t0 = time.time()
+    solver = SATSolver(opts)
+
+    if verbose:
+        print('Testing...')
+    all_files = sorted(glob.glob(opts.test_dir + '/**/*.cnf', recursive=True))
+    all_files = [os.path.abspath(f) for f in all_files]
+
+    with ProcessPoolExecutor(max_workers=opts.n_process) as pool:
+        results = pool.map(solver.run, all_files)
+
+    all_results = []
+    tot = len(all_files)
+    cnt = 0
+    avg_flips = 0
+
+    for result in results:
+        all_results.append(result)
+        complete, assignment, num_flips, t = result
+        if complete:
+            cnt += 1
+            avg_flips += num_flips
+
+    r = cnt / tot
+    if cnt > 0:
+        avg_flips /= cnt
+
+    if verbose:
+        print('Total: %d, Solved: %d, Ratio: %.3f, Average number of flips: %.1f.' % (tot, cnt, r, avg_flips))
+
+    t = time.time() - t0
+    if verbose:
+        print('Solving Time: %f' % t)
+    return all_results, t
+
+
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('test_dir', type=str, help='Directory with testing data')
@@ -20,6 +63,8 @@ def main():
     parser.add_argument('--timeout', type=int, default=5000, help='Timeout')
     parser.add_argument('--n_process', type=int, default=32, help='Number of processes to run')
     parser.add_argument('--trial', type=int, default=0, help='Experiment number')
+    # Add argument that adds name to .out filename
+    parser.add_argument('--out_name', type=str, default=None, help='Name to be added to .out filename (initial assignment)')
 
     opts = parser.parse_args()
 
@@ -37,37 +82,8 @@ def main():
 
     print(opts)
 
-    t0 = time.time()
-
-    solver = SATSolver(opts)
-    
-    print('Testing...')
-    all_files = sorted(glob.glob(opts.test_dir + '/**/*.cnf', recursive=True))
-    all_files = [os.path.abspath(f) for f in all_files]
-    
-    with ProcessPoolExecutor(max_workers=opts.n_process) as pool:
-        results = pool.map(solver.run, all_files)
-    
-    all_results = []
-    tot = len(all_files)
-    cnt = 0
-    avg_flips = 0
-
-    for result in results:
-        all_results.append(result)
-        complete, assignment, num_flips, t = result
-        if complete:
-            cnt += 1
-            avg_flips += num_flips
-
-    r = cnt / tot
-    if cnt > 0:
-        avg_flips /= cnt
-    
-    print('Total: %d, Solved: %d, Ratio: %.3f, Average number of flips: %.1f.' % (tot, cnt, r, avg_flips))
-
-    t = time.time() - t0
-    print('Solving Time: %f' % t)
+    # Run evaluation
+    all_results, t = evaluate_sat_solver(opts, verbose=True)
 
     if opts.max_flips is None:
         opts.max_flips = 'inf'

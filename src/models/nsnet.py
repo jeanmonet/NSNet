@@ -14,25 +14,25 @@ from utils.scatter import scatter_logsumexp
 # from torch.scatter_reduce import scatter_logsumexp
 
 
-
-
 class NSNet(nn.Module):
     def __init__(self, opts):
         super(NSNet, self).__init__()
         self.opts = opts
-        self.c2l_edges_init = nn.Parameter(torch.randn(1, self.opts.dim))
-        self.l2c_edges_init = nn.Parameter(torch.randn(1, self.opts.dim))
+        self.c2l_edges_init = nn.Parameter(torch.randn(1, self.opts.dim))   # clause to literal edges
+        self.l2c_edges_init = nn.Parameter(torch.randn(1, self.opts.dim))   # literal to clause edges
         self.denom = math.sqrt(self.opts.dim)
+        # Clause node to assignment node message update: m_{a, i}(x_i) = MLP(i, a)
         self.c2l_msg_update = MLP(self.opts.n_mlp_layers, self.opts.dim, self.opts.dim, self.opts.dim, self.opts.activation)
+        # Assignment node to clause node message update: m_{i, a}(x_i) = MLP(a, i)
         self.l2c_msg_update = MLP(self.opts.n_mlp_layers, self.opts.dim, self.opts.dim, self.opts.dim, self.opts.activation)
         self.l2c_msg_norm = MLP(self.opts.n_mlp_layers, self.opts.dim * 2, self.opts.dim, self.opts.dim, self.opts.activation)
         self.c_readout = MLP(self.opts.n_mlp_layers, self.opts.dim, self.opts.dim, 1, self.opts.activation)
         self.l_readout = MLP(self.opts.n_mlp_layers, self.opts.dim, self.opts.dim, 1, self.opts.activation)
         self.softmax = nn.Softmax(dim=1)
-    
+
     def forward(self, data):
-        l_size = data.l_size.sum().item()
-        c_size = data.c_size.sum().item()
+        l_size = data.l_size.sum().item()        # number of literals
+        c_size = data.c_size.sum().item()        # number of clauses
         num_edges = data.num_edges
 
         sign_l_edge_index = data.sign_l_edge_index

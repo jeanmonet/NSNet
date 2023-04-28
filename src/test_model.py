@@ -1,3 +1,10 @@
+"""
+$ python src/test_model.py sat-solving /opt/files/maio2022/SAT/NSNet/SATSolving/3-sat/test/ --checkpoint src/runs/sat_nsnet_3-sat_marginal/checkpoints/model_best.pt --batch_size 32
+Total: 10000, Solved: 5333.000000, Ratio: 0.533300
+Solving Time: 312.529592
+
+"""
+
 import warnings
 
 import torch
@@ -111,6 +118,7 @@ def main():
                     mse = F.mse_loss(preds, labels).item()
                     rmse += mse * batch_size
                 else:
+                    # sat-solving
                     c_size = data.c_size.sum().item()
                     c_batch = data.c_batch
                     l_edge_index = data.l_edge_index
@@ -126,11 +134,12 @@ def main():
                     solved += sat_batch.sum().item()
 
             tot += batch_size
-    
+
     if opts.task == 'model-counting':
         rmse = math.sqrt(rmse / tot)
         print('Total: %d, RMSE: %f' % (tot, rmse))
     else:
+        # sat-solving
         r = solved / tot
         print('Total: %d, Solved: %f, Ratio: %f' % (tot, solved, r))
 
