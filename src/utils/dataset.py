@@ -11,6 +11,7 @@ from utils.utils import literal2l_idx, parse_cnf_file
 
 
 class LCG(Data):
+    # for NeuroSAT representation
     def __init__(
         self,
         l_size=None,

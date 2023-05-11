@@ -6,14 +6,14 @@ from itertools import combinations
 ClauseT = list[int]
 
 
-def literal2v_idx(literal):
+def literal2v_idx(literal) -> tuple[bool, int]:
     assert abs(literal) > 0
     sign = literal > 0
     v_idx = abs(literal) - 1
     return sign, v_idx
 
 
-def literal2l_idx(literal):
+def literal2l_idx(literal) -> int:
     assert abs(literal) > 0
     sign = literal > 0
     v_idx = abs(literal) - 1
@@ -125,7 +125,7 @@ def remove_fixed_vars(
     new_n_vars = n_vars - len(fixed_vars)
     new_clauses = [
         [
-            l - shifts[abs(l)-1] if l > 0 else l + shifts[abs(l)-1] for l in clause
+            l - shifts[abs(l) - 1] if l > 0 else l + shifts[abs(l) - 1] for l in clause
         ] for clause in clauses
     ]
 

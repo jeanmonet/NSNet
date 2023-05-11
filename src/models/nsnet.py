@@ -31,6 +31,30 @@ class NSNet(nn.Module):
         self.softmax = nn.Softmax(dim=1)
 
     def forward(self, data):
+        """
+        Explanation of what this function does:
+        1. Initialize the clause to literal edges and literal to clause edges
+        2. For each round:
+            2.1. Compute the clause to literal message
+            2.2. Compute the literal to clause message
+            2.3. Compute the clause to literal message aggregation
+            2.4. Compute the clause to literal message normalization
+        3. Compute the clause readout
+        4. Compute the literal readout
+        5. Compute the clause to literal message aggregation
+        6. Compute the clause to literal message normalization
+        7. Compute the clause to literal message
+        8. Compute the literal to clause message
+        9. Compute the clause to literal message aggregation
+        10. Compute the clause to literal message normalization
+        ...
+
+        Explain what the readout is:
+        The readout is the final output of the model. It is a scalar value that is computed from the clause and literal
+        embeddings. The clause readout is computed by summing the clause embeddings and passing them through a MLP. The
+        literal readout is computed by summing the literal embeddings and passing them through a MLP.
+
+        """
         l_size = data.l_size.sum().item()        # number of literals
         c_size = data.c_size.sum().item()        # number of clauses
         num_edges = data.num_edges
