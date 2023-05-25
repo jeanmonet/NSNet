@@ -26,9 +26,15 @@ class NSNet(nn.Module):
         # Assignment node to clause node message update: m_{i, a}(x_i) = MLP(a, i)
         self.l2c_msg_update = MLP(self.opts.n_mlp_layers, self.opts.dim, self.opts.dim, self.opts.dim, self.opts.activation)
         self.l2c_msg_norm = MLP(self.opts.n_mlp_layers, self.opts.dim * 2, self.opts.dim, self.opts.dim, self.opts.activation)
+        # c_readout for model counting
         self.c_readout = MLP(self.opts.n_mlp_layers, self.opts.dim, self.opts.dim, 1, self.opts.activation)
+        # l_readout for SAT solving
         self.l_readout = MLP(self.opts.n_mlp_layers, self.opts.dim, self.opts.dim, 1, self.opts.activation)
         self.softmax = nn.Softmax(dim=1)
+
+        # Multi-head self-attention layer
+        self.self_attn = nn.MultiheadAttention(embed_dim=self.opts.dim * 2, num_heads=self.opts.n_attn_heads)
+        self.attn_proj = nn.Linear(self.opts.dim * 2, self.opts.dim * 2)
 
     def forward(self, data):
         """
@@ -60,11 +66,14 @@ class NSNet(nn.Module):
         num_edges = data.num_edges
 
         sign_l_edge_index = data.sign_l_edge_index
-        c2l_msg_repeat_index = data.c2l_msg_repeat_index
+        c2l_msg_repeat_index = data.c2l_msg_repeat_index  # this is the same as sign_l_edge_index, meaning that the message is sent from the clause to the literal
+        # in the above line, index refers to the literal index, and value refers to the clause index. It is called repeat because the message is repeated for each literal in the clause
         c2l_msg_scatter_index = data.c2l_msg_scatter_index
 
         l2c_msg_aggr_repeat_index = data.l2c_msg_aggr_repeat_index
         l2c_msg_aggr_scatter_index = data.l2c_msg_aggr_scatter_index
+        # ^^ this is the same as c2l_msg_scatter_index, meaning that the message is sent from the literal to the clause
+        # it is called aggr because the message is aggregated for each clause
         l2c_msg_scatter_index = data.l2c_msg_scatter_index
 
         if self.opts.task == 'model-counting':
@@ -81,16 +90,28 @@ class NSNet(nn.Module):
         l2c_edges_feat = (self.l2c_edges_init / self.denom).repeat(num_edges, 1)
 
         for _ in range(self.opts.n_rounds):
-            c2l_msg = scatter_sum(c2l_edges_feat[c2l_msg_repeat_index], c2l_msg_scatter_index, dim=0, dim_size=num_edges)
-            l2c_edges_feat_new = self.l2c_msg_update(c2l_msg)
-            v2c_edges_feat_new = l2c_edges_feat_new.reshape(num_edges // 2, -1)
+            c2l_msg = scatter_sum(
+                c2l_edges_feat[c2l_msg_repeat_index], c2l_msg_scatter_index, dim=0, dim_size=num_edges)
+            # Shape of c2l_msg: [num_edges, dim]
+            l2c_edges_feat_new = self.l2c_msg_update(c2l_msg)   # shape: [num_edges, dim]
+            v2c_edges_feat_new = l2c_edges_feat_new.reshape(num_edges // 2, -1)  # shape: [num_edges // 2, 2 * dim]
+
+            for _ in range(self.opts.n_attn_rounds):
+                # Perform self-attention on v2c_edges_feat_new:
+                v2c_edges_feat_new = v2c_edges_feat_new.unsqueeze(0) # adding an extra dimension for the attention function
+                v2c_edges_feat_new = self.self_attn(v2c_edges_feat_new, v2c_edges_feat_new, v2c_edges_feat_new)[0]
+                v2c_edges_feat_new = v2c_edges_feat_new.squeeze(0) # removing the extra dimension added previously
+                # Pass the output through the linear projection layer
+                v2c_edges_feat_new = self.attn_proj(v2c_edges_feat_new)
+
             pv2c_edges_feat_new, nv2c_edges_feat_new = torch.chunk(v2c_edges_feat_new, 2, 1)
+
             l2c_edges_feat_inv = torch.cat([nv2c_edges_feat_new, pv2c_edges_feat_new], dim=1).reshape(num_edges, -1)
             l2c_edges_feat = self.l2c_msg_norm(torch.cat([l2c_edges_feat_new, l2c_edges_feat_inv], dim=1))
 
             l2c_msg_aggr = scatter_sum(l2c_edges_feat[l2c_msg_aggr_repeat_index], l2c_msg_aggr_scatter_index, dim=0, dim_size=l2c_msg_scatter_index.shape[0])
             l2c_msg = scatter_logsumexp(l2c_msg_aggr, l2c_msg_scatter_index, dim=0, dim_size=num_edges)
-            c2l_edges_feat = self.c2l_msg_update(l2c_msg)
+            c2l_edges_feat = self.c2l_msg_update(l2c_msg)    # shape: [num_edges, dim]
 
         if self.opts.task == 'model-counting':
             c_blf_aggr = scatter_sum(l2c_edges_feat[c_blf_repeat_index], c_blf_scatter_index, dim=0, dim_size=c_blf_norm_index.shape[0])
@@ -112,9 +133,4 @@ class NSNet(nn.Module):
             l_logit = scatter_sum(c2l_edges_feat, sign_l_edge_index, dim=0, dim_size=l_size)
             l_logit = self.l_readout(l_logit)
             v_logit = l_logit.reshape(-1, 2)
-            # TEMP - check NaNs in model output
-            # res = self.softmax(v_logit)
-            # if res.isnan().sum() > 0:
-            #     raise ValueError("WE HAVE NANS IN FWD")
-            # return res
             return self.softmax(v_logit)
